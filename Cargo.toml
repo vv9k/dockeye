@@ -1,0 +1,13 @@
+[package]
+name = "dockeye"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = { version = "0.15", features = ["persistence"] }
+egui = "0.15"
+epi = "0.15"
+epaint = "0.15"
+docker-api = "0.6"
+
+parking_lot_core = "=0.8.0" # fix WASM build
