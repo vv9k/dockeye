@@ -1,7 +1,10 @@
-use crate::app::{App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON, PLAY_ICON, STOP_ICON};
+use crate::app::{
+    key, key_val, val, App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON, PLAY_ICON, STOP_ICON,
+};
 use crate::event::EventRequest;
 
 use docker_api::api::{ContainerDetails, ContainerStatus};
+use docker_api::conn::TtyChunk;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
 
@@ -110,40 +113,48 @@ impl App {
                     } else {
                         egui::Color32::RED
                     };
-                    let dot = egui::Label::new(PACKAGE_ICON).text_color(color);
+                    let dot = egui::Label::new(PACKAGE_ICON).text_color(color).heading();
                     ui.scope(|ui| {
-                        ui.add(dot);
-                        if let Some(name) = container.names.first() {
-                            ui.add(Label::new(name.trim_start_matches('/')).strong());
-                        } else {
-                            ui.add(Label::new(&container.id[..12]).strong());
-                        }
-                    });
+                        egui::Grid::new(&container.id).show(ui, |ui| {
+                            ui.scope(|ui| {
+                                ui.add(dot);
+                                if let Some(name) = container.names.first() {
+                                    ui.add(Label::new(name.trim_start_matches('/')).strong());
+                                } else {
+                                    ui.add(Label::new(&container.id[..12]).strong());
+                                }
+                            });
+                            let image = if container.image.starts_with("sha256") {
+                                &container.image.trim_start_matches("sha256:")[..12]
+                            } else {
+                                container.image.as_str()
+                            };
+                            ui.end_row();
+                            ui.add(Label::new(image).italics());
+                            ui.end_row();
 
-                    ui.scope(|ui| {
-                        btn!(info => self, ui, container, errors);
-                        btn!(delete => self, ui, container, errors);
-                        if &container.state == "running" {
-                            btn!(stop => self, ui, container, errors);
-                            btn!(pause => self, ui, container, errors);
-                        } else if &container.state == "paused" {
-                            btn!(stop => self, ui, container, errors);
-                            btn!(unpause => self, ui, container, errors);
-                        } else {
-                            btn!(start => self, ui, container, errors);
-                        }
+                            ui.add(Label::new(&container.status).italics());
+                            ui.end_row();
+
+                            ui.scope(|ui| {
+                                btn!(info => self, ui, container, errors);
+                                btn!(delete => self, ui, container, errors);
+                                if &container.state == "running" {
+                                    btn!(stop => self, ui, container, errors);
+                                    btn!(pause => self, ui, container, errors);
+                                } else if &container.state == "paused" {
+                                    btn!(stop => self, ui, container, errors);
+                                    btn!(unpause => self, ui, container, errors);
+                                } else {
+                                    btn!(start => self, ui, container, errors);
+                                }
+                            });
+                            ui.end_row();
+                        });
                     });
                     ui.end_row();
 
-                    let image = if container.image.starts_with("sha256") {
-                        &container.image.trim_start_matches("sha256:")[..12]
-                    } else {
-                        container.image.as_str()
-                    };
-                    ui.add(Label::new(image).italics());
-                    ui.end_row();
-
-                    ui.add(Label::new(&container.status).italics());
+                    ui.separator();
                     ui.end_row();
                 }
                 errors.iter().for_each(|err| self.add_notification(err));
@@ -152,26 +163,24 @@ impl App {
     }
 
     pub fn container_details(&mut self, ui: &mut egui::Ui) {
-        macro_rules! key {
-            ($ui:ident, $k:expr) => {
-                $ui.add(Label::new($k).strong());
-            };
-        }
-        macro_rules! val {
-            ($ui:ident, $v:expr) => {
-                $ui.add(Label::new($v).monospace());
-            };
-        }
-        macro_rules! key_val {
-            ($ui:ident, $k:expr, $v:expr) => {
-                key!($ui, $k);
-                val!($ui, $v);
-                $ui.end_row();
-            };
-        }
         if let Some(container) = &self.current_container {
             let mut errors = vec![];
-            ui.heading(container.name.trim_start_matches('/'));
+            let color = if is_running(container) {
+                egui::Color32::GREEN
+            } else if is_paused(container) {
+                egui::Color32::YELLOW
+            } else {
+                egui::Color32::RED
+            };
+            ui.horizontal(|ui| {
+                ui.add(egui::Label::new(PACKAGE_ICON).text_color(color).heading());
+                ui.add(
+                    Label::new(container.name.trim_start_matches('/'))
+                        .heading()
+                        .strong(),
+                );
+            });
+            ui.add_space(25.);
 
             if is_running(container) {
                 ui.horizontal(|ui| {
@@ -263,53 +272,74 @@ impl App {
                                 key!(ui, name);
                                 ui.end_row();
                                 ui.scope(|_| {});
-                                key_val!(ui, "MAC address:", &entry.mac_address);
+                                egui::Grid::new(&name).show(ui, |ui| {
+                                    key_val!(ui, "MAC address:", &entry.mac_address);
+                                    key_val!(
+                                        ui,
+                                        "IPv4:",
+                                        format!("{}/{}", entry.ip_address, entry.ip_prefix_len)
+                                    );
+                                    key_val!(ui, "Gateway:", &entry.gateway);
+                                    key_val!(
+                                        ui,
+                                        "IPv6:",
+                                        format!(
+                                            "{}/{}",
+                                            entry.global_ipv6_address, entry.global_ipv6_prefix_len
+                                        )
+                                    );
+                                    key_val!(ui, "IPv6 gateway:", &entry.ipv6_gateway);
+                                    key_val!(ui, "Network ID:", &entry.network_id);
+                                    key_val!(ui, "Endpoint ID:", &entry.endpoint_id);
+                                });
+                                ui.end_row();
                                 ui.scope(|_| {});
-                                key_val!(
-                                    ui,
-                                    "IPv4:",
-                                    format!("{}/{}", entry.ip_address, entry.ip_prefix_len)
-                                );
-                                ui.scope(|_| {});
-                                key_val!(ui, "Gateway:", &entry.gateway);
-                                ui.scope(|_| {});
-                                key_val!(
-                                    ui,
-                                    "IPv6:",
-                                    format!(
-                                        "{}/{}",
-                                        entry.global_ipv6_address, entry.global_ipv6_prefix_len
-                                    )
-                                );
-                                ui.scope(|_| {});
-                                key_val!(ui, "IPv6 gateway:", &entry.ipv6_gateway);
-                                ui.scope(|_| {});
-                                key_val!(ui, "Network ID:", &entry.network_id);
-                                ui.scope(|_| {});
-                                key_val!(ui, "Endpoint ID:", &entry.endpoint_id);
+                                ui.separator();
+                                ui.end_row();
                             }
                         });
                     });
                     ui.end_row();
                 }
             });
+            if let Some(logs) = &self.current_logs {
+                egui::CollapsingHeader::new("Logs")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        let logs = logs
+                            .0
+                            .iter()
+                            .map(|chunk| {
+                                let data = match chunk {
+                                    TtyChunk::StdErr(data)
+                                    | TtyChunk::StdIn(data)
+                                    | TtyChunk::StdOut(data) => data,
+                                };
+                                String::from_utf8_lossy(&data)
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+
+                        ui.code(&logs);
+                    });
+            }
 
             if let Some(stats) = &self.current_stats {
                 egui::CollapsingHeader::new("Stats")
                     .default_open(false)
                     .show(ui, |ui| {
                         let cpu_data =
-                            plot::Values::from_values_iter(stats.iter().map(|(time, stat)| {
+                            plot::Values::from_values_iter(stats.0.iter().map(|(time, stat)| {
                                 plot::Value::new(time.as_secs_f64(), stat.cpu_usage)
                             }));
 
                         let mem_data =
-                            plot::Values::from_values_iter(stats.iter().map(|(time, stat)| {
+                            plot::Values::from_values_iter(stats.0.iter().map(|(time, stat)| {
                                 plot::Value::new(time.as_secs_f64(), stat.mem_percent)
                             }));
 
                         Grid::new("stats_grid").show(ui, |ui| {
-                            if let Some(last) = stats.last() {
+                            if let Some(last) = stats.0.last() {
                                 key_val!(ui, "CPU usage:", format!("{:0.2}%", last.1.cpu_usage));
                                 key_val!(
                                     ui,

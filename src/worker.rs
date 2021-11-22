@@ -1,5 +1,6 @@
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::stats::{worker::StatsWorker, StatsWrapper};
+use crate::logs::{Logs, LogsWorker};
+use crate::stats::{worker::StatsWorker, RunningContainerStats};
 
 use anyhow::Result;
 use docker_api::Docker;
@@ -44,16 +45,28 @@ impl DockerWorker {
             }
         });
         let worker = tokio::spawn(async move {
-            let (tx_stats, mut rx_stats) = mpsc::channel::<Vec<(Duration, StatsWrapper)>>(8);
-            let (tx_want_data, rx_want_data) = mpsc::channel::<()>(64);
-            let (tx_id, rx_id) = mpsc::channel::<String>(16);
+            let (tx_stats, mut rx_stats) = mpsc::channel::<Box<RunningContainerStats>>(8);
+            let (tx_want_stats, rx_want_stats) = mpsc::channel::<()>(64);
+            let (tx_stats_id, rx_stats_id) = mpsc::channel::<String>(16);
             let stats_worker = StatsWorker {
-                rx_id,
+                rx_id: rx_stats_id,
                 tx_stats,
-                rx_want_data,
+                rx_want_data: rx_want_stats,
                 docker: docker.clone(),
             };
             let _ = tokio::spawn(stats_worker.work());
+
+            let (tx_logs, mut rx_logs) = mpsc::channel::<Box<Logs>>(8);
+            let (tx_want_logs, rx_want_logs) = mpsc::channel::<()>(64);
+            let (tx_logs_id, rx_logs_id) = mpsc::channel::<String>(16);
+            let logs_worker = LogsWorker {
+                rx_id: rx_logs_id,
+                tx_logs,
+                rx_want_data: rx_want_logs,
+                docker: docker.clone(),
+            };
+            let _ = tokio::spawn(logs_worker.work());
+
             loop {
                 if let Some(req) = inner_rx_req.recv().await {
                     debug!("[worker] got request: {:?}", req);
@@ -144,13 +157,16 @@ impl DockerWorker {
                             }
                         }
                         EventRequest::ContainerStatsStart { id } => {
-                            if let Err(e) = tx_id.send(id).await {
+                            if let Err(e) = tx_stats_id.send(id.clone()).await {
                                 error!("[worker] failed to start stats collection: {}", e);
+                            }
+                            if let Err(e) = tx_logs_id.send(id).await {
+                                error!("[worker] failed to start logs collection: {}", e);
                             }
                             continue;
                         }
                         EventRequest::ContainerStats => {
-                            if let Err(e) = tx_want_data.send(()).await {
+                            if let Err(e) = tx_want_stats.send(()).await {
                                 error!("[worker] failed to collect stats data: {}", e);
                                 continue;
                             }
@@ -160,6 +176,20 @@ impl DockerWorker {
                                 EventResponse::ContainerStats(stats)
                             } else {
                                 log::warn!("[worker] no stats available");
+                                continue;
+                            }
+                        }
+                        EventRequest::ContainerLogs => {
+                            if let Err(e) = tx_want_logs.send(()).await {
+                                error!("[worker] failed to collect logs: {}", e);
+                                continue;
+                            }
+                            trace!("[worker] notified logs worker to poll data, reading logs");
+                            if let Some(logs) = rx_logs.recv().await {
+                                trace!("[worker] got data {:?}", logs);
+                                EventResponse::ContainerLogs(logs)
+                            } else {
+                                log::warn!("[worker] no logs available");
                                 continue;
                             }
                         }

@@ -3,6 +3,9 @@ pub mod worker;
 use docker_api::api::{CpuStats, MemoryStat, MemoryStats, Stats};
 
 #[derive(Debug, Clone)]
+pub struct RunningContainerStats(pub Vec<(std::time::Duration, StatsWrapper)>);
+
+#[derive(Debug, Clone)]
 pub struct StatsWrapper {
     pub cpu_usage: f64,
     pub mem_usage: f64,

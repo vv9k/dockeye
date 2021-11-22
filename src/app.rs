@@ -2,12 +2,13 @@ mod containers;
 mod images;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::stats::StatsWrapper;
+use crate::logs::Logs;
+use crate::stats::RunningContainerStats;
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerInfo, ContainerListOpts, ImageInfo, Status};
 use eframe::{egui, epi};
 use std::collections::VecDeque;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use tokio::sync::mpsc;
 
 const PACKAGE_ICON: &str = "\u{1F4E6}";
@@ -17,6 +18,26 @@ const DELETE_ICON: &str = "\u{1F5D9}";
 const PLAY_ICON: &str = "\u{25B6}";
 const PAUSE_ICON: &str = "\u{23F8}";
 const STOP_ICON: &str = "\u{23F9}";
+
+macro_rules! key {
+    ($ui:ident, $k:expr) => {
+        $ui.add(Label::new($k).strong());
+    };
+}
+macro_rules! val {
+    ($ui:ident, $v:expr) => {
+        $ui.add(Label::new($v).monospace());
+    };
+}
+macro_rules! key_val {
+    ($ui:ident, $k:expr, $v:expr) => {
+        key!($ui, $k);
+        val!($ui, $v);
+        $ui.end_row();
+    };
+}
+
+pub(crate) use {key, key_val, val};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Tab {
@@ -52,7 +73,8 @@ pub struct App {
 
     containers: Vec<ContainerInfo>,
     current_container: Option<Box<ContainerDetails>>,
-    current_stats: Option<Vec<(Duration, StatsWrapper)>>,
+    current_stats: Option<Box<RunningContainerStats>>,
+    current_logs: Option<Box<Logs>>,
     images: Vec<ImageInfo>,
     current_image: Option<Box<ImageInspectInfo>>,
 }
@@ -98,7 +120,8 @@ impl App {
 
     fn side_panel(&mut self, ctx: &egui::CtxRef) {
         egui::SidePanel::left("side_panel")
-            .min_width(150.)
+            .min_width(100.)
+            .resizable(false)
             .show(ctx, |ui| match self.current_tab {
                 Tab::Containers => {
                     self.containers_scroll(ui);
@@ -157,6 +180,7 @@ impl App {
             containers: vec![],
             current_container: None,
             current_stats: None,
+            current_logs: None,
             images: vec![],
             current_image: None,
         }
@@ -198,6 +222,7 @@ impl App {
             .unwrap_or_default()
         {
             self.send_event_notify(EventRequest::ContainerStats);
+            self.send_event_notify(EventRequest::ContainerLogs);
         }
         self.update_time = SystemTime::now();
     }
@@ -228,6 +253,7 @@ impl App {
                     self.add_notification(status)
                 }
                 EventResponse::ContainerStats(stats) => self.current_stats = Some(stats),
+                EventResponse::ContainerLogs(logs) => self.current_logs = Some(logs),
                 EventResponse::StartContainer(res)
                 | EventResponse::StopContainer(res)
                 | EventResponse::PauseContainer(res)
