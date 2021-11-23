@@ -66,6 +66,7 @@ pub struct App {
     update_time: SystemTime,
     notifications_time: SystemTime,
     current_window: egui::Rect,
+    errors: VecDeque<String>,
 
     current_tab: Tab,
 
@@ -184,6 +185,7 @@ impl App {
             current_tab: Tab::default(),
             current_window: egui::Rect::EVERYTHING,
 
+            errors: VecDeque::new(),
             notifications: VecDeque::new(),
 
             containers: vec![],
@@ -207,6 +209,10 @@ impl App {
 
     fn add_notification(&mut self, notification: impl std::fmt::Display) {
         self.notifications.push_back(format!("{}", notification));
+    }
+
+    fn add_error(&mut self, error: impl std::fmt::Display) {
+        self.errors.push_back(format!("{}", error));
     }
 
     fn send_update_request(&mut self) {
@@ -238,6 +244,7 @@ impl App {
 
     fn read_worker_events(&mut self) {
         while let Ok(event) = self.rx_rsp.try_recv() {
+            log::warn!("[gui] received event: {:?}", event);
             match event {
                 EventResponse::ListContainers(containers) => self.containers = containers,
                 EventResponse::ListImages(images) => self.images = images,
@@ -280,20 +287,17 @@ impl App {
         }
     }
 
-    fn pop_notification(&mut self) {
-        self.notifications.pop_front();
-        self.notifications_time = SystemTime::now();
-    }
-
     fn handle_notifications(&mut self) {
         if self
             .notifications_time
             .elapsed()
             .unwrap_or_default()
-            .as_secs()
-            > 5
+            .as_millis()
+            >= 5000
         {
-            self.pop_notification();
+            self.notifications.pop_front();
+            self.errors.pop_front();
+            self.notifications_time = SystemTime::now();
         }
     }
 

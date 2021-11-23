@@ -1,4 +1,3 @@
-#![feature(int_log)]
 mod app;
 mod event;
 mod logs;
@@ -40,4 +39,19 @@ pub fn conv_fb(bytes: f64) -> String {
 
 pub fn conv_b(bytes: u64) -> String {
     conv_fb(bytes as f64)
+}
+
+pub const fn checked_log_10(num: usize) -> Option<usize> {
+    if num == 0 {
+        None
+    } else {
+        let mut n = 0;
+        let mut r = num;
+
+        while r >= 10 {
+            r /= 10;
+            n += 1;
+        }
+        Some(n)
+    }
 }

@@ -1,6 +1,6 @@
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
 use crate::logs::{Logs, LogsWorker};
-use crate::stats::{worker::StatsWorker, RunningContainerStats};
+use crate::stats::worker::StatsWorker;
 
 use anyhow::Result;
 use docker_api::Docker;
@@ -45,16 +45,8 @@ impl DockerWorker {
             }
         });
         let worker = tokio::spawn(async move {
-            let (tx_stats, mut rx_stats) = mpsc::channel::<Box<RunningContainerStats>>(8);
-            let (tx_want_stats, rx_want_stats) = mpsc::channel::<()>(64);
-            let (tx_stats_id, rx_stats_id) = mpsc::channel::<String>(16);
-            let stats_worker = StatsWorker {
-                rx_id: rx_stats_id,
-                tx_stats,
-                rx_want_data: rx_want_stats,
-                docker: docker.clone(),
-            };
-            let _ = tokio::spawn(stats_worker.work());
+            let (stats_worker, tx_stats_id, tx_want_stats, mut rx_stats) = StatsWorker::new();
+            let _ = tokio::spawn(stats_worker.work(docker.clone()));
 
             let (tx_logs, mut rx_logs) = mpsc::channel::<Box<Logs>>(8);
             let (tx_want_logs, rx_want_logs) = mpsc::channel::<()>(64);
@@ -64,6 +56,7 @@ impl DockerWorker {
                 tx_logs,
                 rx_want_data: rx_want_logs,
                 docker: docker.clone(),
+                current_id: None,
             };
             let _ = tokio::spawn(logs_worker.work());
 
