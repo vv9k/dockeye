@@ -2,7 +2,6 @@ mod containers;
 mod images;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::logs::Logs;
 use crate::stats::RunningContainerStats;
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerInfo, ContainerListOpts, ImageInfo, Status};
@@ -66,6 +65,7 @@ pub struct App {
 
     update_time: SystemTime,
     notifications_time: SystemTime,
+    current_window: egui::Rect,
 
     current_tab: Tab,
 
@@ -74,7 +74,7 @@ pub struct App {
     containers: Vec<ContainerInfo>,
     current_container: Option<Box<ContainerDetails>>,
     current_stats: Option<Box<RunningContainerStats>>,
-    current_logs: Option<Box<Logs>>,
+    current_logs: Option<String>,
     images: Vec<ImageInfo>,
     current_image: Option<Box<ImageInspectInfo>>,
 }
@@ -95,6 +95,7 @@ impl epi::App for App {
     fn save(&mut self, _storage: &mut dyn epi::Storage) {}
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
+        self.current_window = ctx.available_rect();
         self.handle_data_update();
         self.read_worker_events();
         self.handle_notifications();
@@ -118,9 +119,16 @@ impl App {
         });
     }
 
+    #[inline]
+    fn side_panel_size(&self) -> f32 {
+        self.current_window.width() / 6.
+    }
+
     fn side_panel(&mut self, ctx: &egui::CtxRef) {
         egui::SidePanel::left("side_panel")
             .min_width(100.)
+            .max_width(250.)
+            .max_width(self.side_panel_size())
             .resizable(false)
             .show(ctx, |ui| match self.current_tab {
                 Tab::Containers => {
@@ -174,6 +182,7 @@ impl App {
             notifications_time: SystemTime::now(),
 
             current_tab: Tab::default(),
+            current_window: egui::Rect::EVERYTHING,
 
             notifications: VecDeque::new(),
 
@@ -253,7 +262,12 @@ impl App {
                     self.add_notification(status)
                 }
                 EventResponse::ContainerStats(stats) => self.current_stats = Some(stats),
-                EventResponse::ContainerLogs(logs) => self.current_logs = Some(logs),
+                EventResponse::ContainerLogs(logs) => {
+                    let bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
+                    let raw_bytes = strip_ansi_escapes::strip(&bytes).unwrap_or(bytes);
+                    let logs = String::from_utf8_lossy(&raw_bytes);
+                    self.current_logs = Some(logs.to_string());
+                }
                 EventResponse::StartContainer(res)
                 | EventResponse::StopContainer(res)
                 | EventResponse::PauseContainer(res)

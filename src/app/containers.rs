@@ -4,7 +4,6 @@ use crate::app::{
 use crate::event::EventRequest;
 
 use docker_api::api::{ContainerDetails, ContainerStatus};
-use docker_api::conn::TtyChunk;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
 
@@ -103,62 +102,70 @@ macro_rules! btn {
 impl App {
     pub fn containers_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
-            egui::Grid::new("side_panel").show(ui, |ui| {
-                let mut errors = vec![];
-                for container in &self.containers {
-                    let color = if &container.state == "running" {
-                        egui::Color32::GREEN
-                    } else if &container.state == "paused" {
-                        egui::Color32::YELLOW
-                    } else {
-                        egui::Color32::RED
-                    };
-                    let dot = egui::Label::new(PACKAGE_ICON).text_color(color).heading();
-                    ui.scope(|ui| {
-                        egui::Grid::new(&container.id).show(ui, |ui| {
-                            ui.scope(|ui| {
-                                ui.add(dot);
-                                if let Some(name) = container.names.first() {
-                                    ui.add(Label::new(name.trim_start_matches('/')).strong());
-                                } else {
-                                    ui.add(Label::new(&container.id[..12]).strong());
-                                }
-                            });
-                            let image = if container.image.starts_with("sha256") {
-                                &container.image.trim_start_matches("sha256:")[..12]
-                            } else {
-                                container.image.as_str()
-                            };
-                            ui.end_row();
-                            ui.add(Label::new(image).italics());
-                            ui.end_row();
+            egui::Grid::new("side_panel")
+                .min_col_width(100.)
+                .max_col_width(self.side_panel_size())
+                .show(ui, |ui| {
+                    let mut errors = vec![];
+                    for container in &self.containers {
+                        let color = if &container.state == "running" {
+                            egui::Color32::GREEN
+                        } else if &container.state == "paused" {
+                            egui::Color32::YELLOW
+                        } else {
+                            egui::Color32::RED
+                        };
+                        let dot = egui::Label::new(PACKAGE_ICON).text_color(color).heading();
+                        ui.scope(|ui| {
+                            egui::Grid::new(&container.id)
+                                .min_col_width(100.)
+                                .max_col_width(self.side_panel_size())
+                                .show(ui, |ui| {
+                                    ui.scope(|ui| {
+                                        ui.add(dot);
+                                        if let Some(name) = container.names.first() {
+                                            ui.add(
+                                                Label::new(name.trim_start_matches('/')).strong(),
+                                            );
+                                        } else {
+                                            ui.add(Label::new(&container.id[..12]).strong());
+                                        }
+                                    });
+                                    let image = if container.image.starts_with("sha256") {
+                                        &container.image.trim_start_matches("sha256:")[..12]
+                                    } else {
+                                        container.image.as_str()
+                                    };
+                                    ui.end_row();
+                                    ui.add(Label::new(image).italics());
+                                    ui.end_row();
 
-                            ui.add(Label::new(&container.status).italics());
-                            ui.end_row();
+                                    ui.add(Label::new(&container.status).italics());
+                                    ui.end_row();
 
-                            ui.scope(|ui| {
-                                btn!(info => self, ui, container, errors);
-                                btn!(delete => self, ui, container, errors);
-                                if &container.state == "running" {
-                                    btn!(stop => self, ui, container, errors);
-                                    btn!(pause => self, ui, container, errors);
-                                } else if &container.state == "paused" {
-                                    btn!(stop => self, ui, container, errors);
-                                    btn!(unpause => self, ui, container, errors);
-                                } else {
-                                    btn!(start => self, ui, container, errors);
-                                }
-                            });
-                            ui.end_row();
+                                    ui.scope(|ui| {
+                                        btn!(info => self, ui, container, errors);
+                                        btn!(delete => self, ui, container, errors);
+                                        if &container.state == "running" {
+                                            btn!(stop => self, ui, container, errors);
+                                            btn!(pause => self, ui, container, errors);
+                                        } else if &container.state == "paused" {
+                                            btn!(stop => self, ui, container, errors);
+                                            btn!(unpause => self, ui, container, errors);
+                                        } else {
+                                            btn!(start => self, ui, container, errors);
+                                        }
+                                    });
+                                    ui.end_row();
+                                });
                         });
-                    });
-                    ui.end_row();
+                        ui.end_row();
 
-                    ui.separator();
-                    ui.end_row();
-                }
-                errors.iter().for_each(|err| self.add_notification(err));
-            });
+                        ui.separator();
+                        ui.end_row();
+                    }
+                    errors.iter().for_each(|err| self.add_notification(err));
+                });
         });
     }
 
@@ -177,6 +184,7 @@ impl App {
                 ui.add(
                     Label::new(container.name.trim_start_matches('/'))
                         .heading()
+                        .wrap(true)
                         .strong(),
                 );
             });
@@ -210,12 +218,14 @@ impl App {
                     key_val!(ui, "Entrypoint:", &entrypoint.join(" "));
                 }
 
-                key!(ui, "Labels: ");
+                key!(ui, "Labels:");
                 ui.end_row();
                 if let Some(labels) = container.config.labels.as_ref() {
                     if !labels.is_empty() {
                         ui.label("          ");
                         Grid::new("labels_grid").show(ui, |ui| {
+                            let mut labels = labels.into_iter().collect::<Vec<_>>();
+                            labels.sort();
                             for (k, v) in labels {
                                 val!(ui, &k);
                                 val!(ui, &v);
@@ -302,27 +312,6 @@ impl App {
                     ui.end_row();
                 }
             });
-            if let Some(logs) = &self.current_logs {
-                egui::CollapsingHeader::new("Logs")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        let logs = logs
-                            .0
-                            .iter()
-                            .map(|chunk| {
-                                let data = match chunk {
-                                    TtyChunk::StdErr(data)
-                                    | TtyChunk::StdIn(data)
-                                    | TtyChunk::StdOut(data) => data,
-                                };
-                                String::from_utf8_lossy(&data)
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n");
-
-                        ui.code(&logs);
-                    });
-            }
 
             if let Some(stats) = &self.current_stats {
                 egui::CollapsingHeader::new("Stats")
@@ -479,6 +468,34 @@ impl App {
                         );
                     });
             }
+
+            if let Some(logs) = &self.current_logs {
+                egui::CollapsingHeader::new("Logs")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        let split = logs.split('\n');
+                        let max_count = split.clone().count().log10() + 1;
+                        log::error!("max_count: {}", max_count);
+
+                        for (i, line) in split.enumerate().map(|(i, line)| (i + 1, line)) {
+                            ui.horizontal(|ui| {
+                                let i_count = i.log10() + 1;
+                                log::error!("i_count: {}", i_count);
+                                ui.add(
+                                    Label::new(format!(
+                                        "{}{}|",
+                                        " ".repeat((max_count - i_count) as usize),
+                                        i
+                                    ))
+                                    .code()
+                                    .strong(),
+                                );
+                                ui.add(Label::new(line).monospace());
+                            });
+                        }
+                    });
+            }
+
             errors.iter().for_each(|err| self.add_notification(err));
         }
     }

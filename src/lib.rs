@@ -1,12 +1,13 @@
+#![feature(int_log)]
 mod app;
 mod event;
+mod logs;
 mod stats;
 mod worker;
-mod logs;
 pub use app::App;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
-pub use worker::DockerWorker;
 pub use logs::{Logs, LogsWorker};
+pub use worker::DockerWorker;
 
 fn conv_metric(value: f64, unit: &str) -> String {
     const KILO: f64 = 1000.;

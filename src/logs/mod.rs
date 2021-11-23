@@ -1,12 +1,12 @@
 use anyhow::Result;
-use docker_api::{api::LogsOpts, conn::TtyChunk, Docker};
+use bytes::Bytes;
+use docker_api::{api::LogsOpts, Docker};
 use futures::StreamExt;
 use log::{debug, error};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
-pub struct Logs(pub Vec<TtyChunk>);
+pub struct Logs(pub Vec<Bytes>);
 
 #[derive(Debug)]
 pub struct LogsWorker {
@@ -42,7 +42,7 @@ impl LogsWorker {
                         loop {
                             tokio::select! {
                                 log_data = logs_stream.next() => {
-                                    debug!("[logs-worker] got logs chunk {:?}", log_data);
+                                    debug!("[logs-worker] got logs chunk");
                                     if let Some(data) = log_data {
                                         match data {
                                             Ok(chunk) => {
@@ -54,12 +54,12 @@ impl LogsWorker {
                                         }
                                     }
                                 }
-                                //_ = rx_want_data.recv() => {
-                                    //debug!("[logs-worker] got poll data request, sending logs");
-                                    //if let Err(e) = tx_logs.send(logs.clone()).await {
-                                        //error!("[logs-worker] failed to send container logs: {}", e);
-                                    //}
-                                //}
+                                _ = rx_want_data.recv() => {
+                                    debug!("[logs-worker] got poll data request, sending logs");
+                                    if let Err(e) = tx_logs.send(logs.clone()).await {
+                                        error!("[logs-worker] failed to send container logs: {}", e);
+                                    }
+                                }
                                 _id = rx_id.recv() => if let Some(_id) = _id {
                                     if Some(&_id) != current_id.as_ref() {
                                         debug!("[logs-worker] received new id: {}", _id);

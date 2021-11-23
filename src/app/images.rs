@@ -19,45 +19,56 @@ fn name(id: &str, tags: Option<&Vec<String>>) -> String {
 impl App {
     pub fn image_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
-            egui::Grid::new("side_panel").show(ui, |ui| {
-                let mut errors = vec![];
-                for image in &self.images {
-                    egui::Grid::new(&image.id).show(ui, |ui| {
-                        ui.scope(|ui| {
-                            ui.heading(SCROLL_ICON);
-                            ui.add(Label::new(name(&image.id, image.repo_tags.as_ref())).strong());
-                        });
-                        ui.end_row();
+            ui.wrap_text();
+            egui::Grid::new("side_panel")
+                .max_col_width(self.side_panel_size())
+                .show(ui, |ui| {
+                    let mut errors = vec![];
+                    for image in &self.images {
+                        egui::Grid::new(&image.id)
+                            .max_col_width(self.side_panel_size())
+                            .show(ui, |ui| {
+                                ui.scope(|ui| {
+                                    ui.heading(SCROLL_ICON);
+                                    ui.add(
+                                        Label::new(name(&image.id, image.repo_tags.as_ref()))
+                                            .strong()
+                                            .wrap(true),
+                                    );
+                                });
+                                ui.end_row();
 
-                        ui.add(Label::new(&image.created.to_rfc2822()).italics());
-                        ui.end_row();
+                                ui.add(Label::new(&image.created.to_rfc2822()).italics());
+                                ui.end_row();
 
-                        ui.add(Label::new(crate::conv_b(image.virtual_size)).italics());
-                        ui.end_row();
+                                ui.add(Label::new(crate::conv_b(image.virtual_size)).italics());
+                                ui.end_row();
 
-                        ui.scope(|ui| {
-                            if ui.button(INFO_ICON).clicked() {
-                                if let Err(e) = self.send_event(EventRequest::InspectImage {
-                                    id: image.id.clone(),
-                                }) {
-                                    errors.push(e);
-                                };
-                            }
-                            if ui.button(DELETE_ICON).clicked() {
-                                if let Err(e) = self.send_event(EventRequest::DeleteImage {
-                                    id: image.id.clone(),
-                                }) {
-                                    errors.push(e);
-                                };
-                            }
-                        });
-                    });
-                    ui.end_row();
-                    ui.separator();
-                    ui.end_row();
-                }
-                errors.iter().for_each(|err| self.add_notification(err));
-            });
+                                ui.scope(|ui| {
+                                    if ui.button(INFO_ICON).clicked() {
+                                        if let Err(e) =
+                                            self.send_event(EventRequest::InspectImage {
+                                                id: image.id.clone(),
+                                            })
+                                        {
+                                            errors.push(e);
+                                        };
+                                    }
+                                    if ui.button(DELETE_ICON).clicked() {
+                                        if let Err(e) = self.send_event(EventRequest::DeleteImage {
+                                            id: image.id.clone(),
+                                        }) {
+                                            errors.push(e);
+                                        };
+                                    }
+                                });
+                            });
+                        ui.end_row();
+                        ui.separator();
+                        ui.end_row();
+                    }
+                    errors.iter().for_each(|err| self.add_notification(err));
+                });
         });
     }
 
@@ -68,6 +79,7 @@ impl App {
             ui.add(
                 Label::new(name(&details.id, Some(details.repo_tags.as_ref())))
                     .heading()
+                    .wrap(true)
                     .strong(),
             );
             ui.add_space(25.);
