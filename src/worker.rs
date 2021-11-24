@@ -1,5 +1,5 @@
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::logs::LogsWorker;
+use crate::logs::{LogWorkerEvent, LogsWorker};
 use crate::stats::worker::StatsWorker;
 
 use anyhow::Result;
@@ -48,19 +48,21 @@ impl DockerWorker {
             let (stats_worker, tx_stats_id, tx_want_stats, mut rx_stats) = StatsWorker::new();
             let _ = tokio::spawn(stats_worker.work(docker.clone()));
 
-            let (logs_worker, tx_logs_id, tx_want_logs, mut rx_logs) = LogsWorker::new();
-            let _ = tokio::spawn(logs_worker.work(docker.clone()));
+            let (_, mut tx_logs_event, mut rx_logs) = LogsWorker::new("");
+
+            let mut current_id = String::new();
 
             loop {
                 if let Some(req) = inner_rx_req.recv().await {
-                    debug!("[worker] got request: {:?}", req);
+                    let event_str = format!("{:?}", req);
+                    debug!("got request: {}", event_str);
                     let rsp = match req {
                         EventRequest::ListContainers(opts) => {
                             let opts = opts.unwrap_or_default();
                             match docker.containers().list(&opts).await {
                                 Ok(containers) => EventResponse::ListContainers(containers),
                                 Err(e) => {
-                                    error!("[worker] failed to list containers: {}", e);
+                                    error!("failed to list containers: {}", e);
                                     continue;
                                 }
                             }
@@ -70,18 +72,43 @@ impl DockerWorker {
                             match docker.images().list(&opts).await {
                                 Ok(images) => EventResponse::ListImages(images),
                                 Err(e) => {
-                                    error!("[worker] failed to list images: {}", e);
+                                    error!("failed to list images: {}", e);
                                     continue;
                                 }
                             }
                         }
-                        EventRequest::InspectContainer { id } => {
-                            match docker.containers().get(id).inspect().await {
+                        EventRequest::ContainerTraceStart { id } => {
+                            current_id = id.clone();
+                            if let Err(e) = tx_stats_id.send(id.clone()).await {
+                                error!("failed to start stats collection: {}", e);
+                            } else {
+                                trace!("sent new id to stats worker");
+                            }
+                            if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
+                                error!("failed to send kill event to log worker: {}", e);
+                            }
+                            let w = LogsWorker::new(&current_id);
+                            tx_logs_event = w.1;
+                            rx_logs = w.2;
+                            let _ = tokio::spawn(w.0.work(docker.clone()));
+
+                            match docker.containers().get(&current_id).inspect().await {
                                 Ok(container) => {
-                                    EventResponse::InspectContainer(Box::new(container))
+                                    EventResponse::ContainerDetails(Box::new(container))
                                 }
                                 Err(e) => {
-                                    error!("[worker] failed to inspect a container: {}", e);
+                                    error!("failed to inspect a container: {}", e);
+                                    continue;
+                                }
+                            }
+                        }
+                        EventRequest::ContainerDetails => {
+                            match docker.containers().get(&current_id).inspect().await {
+                                Ok(container) => {
+                                    EventResponse::ContainerDetails(Box::new(container))
+                                }
+                                Err(e) => {
+                                    error!("failed to inspect a container: {}", e);
                                     continue;
                                 }
                             }
@@ -91,21 +118,21 @@ impl DockerWorker {
                             let details = match image.inspect().await {
                                 Ok(details) => details,
                                 Err(e) => {
-                                    error!("[worker] failed to inspect an image: {}", e);
+                                    error!("failed to inspect an image: {}", e);
                                     continue;
                                 }
                             };
                             let distribution_info = match image.distribution_inspect().await {
                                 Ok(info) => Some(info),
                                 Err(e) => {
-                                    trace!("[worker] failed to inspect image distribution: {}", e);
+                                    trace!("failed to inspect image distribution: {}", e);
                                     None
                                 }
                             };
                             let history = match image.history().await {
                                 Ok(history) => history,
                                 Err(e) => {
-                                    error!("[worker] failed to check image history: {}", e);
+                                    error!("failed to check image history: {}", e);
                                     continue;
                                 }
                             };
@@ -119,14 +146,14 @@ impl DockerWorker {
                             match docker.containers().get(&id).delete().await {
                                 Ok(msg) => {
                                     let msg = if msg.is_empty() {
-                                        format!("[worker] successfully deleted container {}", id)
+                                        format!("successfully deleted container {}", id)
                                     } else {
                                         msg
                                     };
                                     EventResponse::DeleteContainer(msg)
                                 }
                                 Err(e) => {
-                                    error!("[worker] failed to delete a container: {}", e);
+                                    error!("failed to delete a container: {}", e);
                                     continue;
                                 }
                             }
@@ -135,45 +162,36 @@ impl DockerWorker {
                             match docker.images().get(&id).delete().await {
                                 Ok(status) => EventResponse::DeleteImage(status),
                                 Err(e) => {
-                                    error!("[worker] failed to delete a image: {}", e);
+                                    error!("failed to delete a image: {}", e);
                                     continue;
                                 }
                             }
                         }
-                        EventRequest::ContainerStatsStart { id } => {
-                            if let Err(e) = tx_stats_id.send(id.clone()).await {
-                                error!("[worker] failed to start stats collection: {}", e);
-                            }
-                            if let Err(e) = tx_logs_id.send(id).await {
-                                error!("[worker] failed to start logs collection: {}", e);
-                            }
-                            continue;
-                        }
                         EventRequest::ContainerStats => {
                             if let Err(e) = tx_want_stats.send(()).await {
-                                error!("[worker] failed to collect stats data: {}", e);
+                                error!("failed to collect stats data: {}", e);
                                 continue;
                             }
-                            trace!("[worker] notified stats worker to poll data, reading stats");
+                            trace!("notified stats worker to poll data, reading stats");
                             if let Some(stats) = rx_stats.recv().await {
-                                trace!("[worker] got data {:?}", stats);
+                                trace!("got data {:?}", stats);
                                 EventResponse::ContainerStats(stats)
                             } else {
-                                log::warn!("[worker] no stats available");
+                                log::warn!("no stats available");
                                 continue;
                             }
                         }
                         EventRequest::ContainerLogs => {
-                            if let Err(e) = tx_want_logs.send(()).await {
-                                error!("[worker] failed to collect logs: {}", e);
+                            if let Err(e) = tx_logs_event.send(LogWorkerEvent::WantData).await {
+                                error!("failed to collect logs: {}", e);
                                 continue;
                             }
-                            trace!("[worker] notified logs worker to poll data, reading logs");
+                            trace!("notified logs worker to poll data, reading logs");
                             if let Some(logs) = rx_logs.recv().await {
-                                trace!("[worker] got data {:?}", logs);
+                                trace!("got data {:?}", logs);
                                 EventResponse::ContainerLogs(logs)
                             } else {
-                                log::warn!("[worker] no logs available");
+                                log::warn!("no logs available");
                                 continue;
                             }
                         }
@@ -194,8 +212,8 @@ impl DockerWorker {
                             EventResponse::StartContainer(docker.containers().get(id).start().await)
                         }
                     };
-                    debug!("[worker] sending response");
-                    //trace!("[worker] {:?}", rsp);
+                    debug!("sending response to event: {}", event_str);
+                    //trace!("{:?}", rsp);
 
                     let _ = tx_rsp.send(rsp).await;
                 }

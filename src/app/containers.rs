@@ -8,10 +8,7 @@ use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
 
 pub fn is_running(container: &ContainerDetails) -> bool {
-    matches!(
-        container.state.status,
-        ContainerStatus::Running | ContainerStatus::Created | ContainerStatus::Restarting
-    )
+    matches!(container.state.status, ContainerStatus::Running)
 }
 
 pub fn is_paused(container: &ContainerDetails) -> bool {
@@ -79,7 +76,7 @@ macro_rules! btn {
             $ui,
             INFO_ICON,
             "inpect the container",
-            EventRequest::InspectContainer {
+            EventRequest::ContainerTraceStart {
                 id: $container.id.clone()
             },
             $errors

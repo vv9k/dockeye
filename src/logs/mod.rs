@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytes::Bytes;
-use docker_api::{api::LogsOpts, Container, Docker};
+use docker_api::{api::LogsOpts, Docker};
 use futures::StreamExt;
 use log::{debug, error};
 use tokio::sync::mpsc;
@@ -8,109 +8,83 @@ use tokio::sync::mpsc;
 #[derive(Debug, Clone)]
 pub struct Logs(pub Vec<Bytes>);
 
+#[derive(Debug, PartialEq)]
+pub enum LogWorkerEvent {
+    WantData,
+    Kill,
+}
+
 #[derive(Debug)]
-pub struct LogsWorker<'d> {
-    pub rx_id: mpsc::Receiver<String>,
-    pub rx_want_data: mpsc::Receiver<()>,
+pub struct LogsWorker {
+    pub current_id: String,
+    pub rx_events: mpsc::Receiver<LogWorkerEvent>,
     pub tx_logs: mpsc::Sender<Box<Logs>>,
-    pub current_id: Option<String>,
-    pub container: Option<Container<'d>>,
     pub logs: Box<Logs>,
 }
 
-impl<'d> LogsWorker<'d> {
-    pub fn new() -> (
+impl LogsWorker {
+    pub fn new(
+        current_id: impl Into<String>,
+    ) -> (
         Self,
-        mpsc::Sender<String>,
-        mpsc::Sender<()>,
+        mpsc::Sender<LogWorkerEvent>,
         mpsc::Receiver<Box<Logs>>,
     ) {
         let (tx_logs, rx_logs) = mpsc::channel::<Box<Logs>>(128);
-        let (tx_want_data, rx_want_data) = mpsc::channel::<()>(128);
-        let (tx_id, rx_id) = mpsc::channel::<String>(128);
+        let (tx_events, rx_events) = mpsc::channel::<LogWorkerEvent>(128);
 
         (
             Self {
-                rx_id,
-                rx_want_data,
+                current_id: current_id.into(),
+                rx_events,
                 tx_logs,
-                current_id: None,
-                container: None,
                 logs: Box::new(Logs(vec![])),
             },
-            tx_id,
-            tx_want_data,
+            tx_events,
             rx_logs,
         )
     }
-    fn set_container(&mut self, docker: &'d Docker, id: &str) -> bool {
-        if Some(id) != self.current_id.as_deref() {
-            debug!("[stats-worker] changing container to {}", id);
-            self.current_id = Some(id.to_string());
-            self.logs.0.clear();
-            self.container = Some(docker.containers().get(id));
-            return true;
-        }
-        false
-    }
     async fn send_logs(&mut self) {
-        debug!("[logs-worker] got poll data request, sending logs");
+        debug!("got poll data request, sending logs");
         if let Err(e) = self.tx_logs.send(self.logs.clone()).await {
-            error!("[logs-worker] failed to send container logs: {}", e);
+            error!("failed to send container logs: {}", e);
         }
     }
-    async fn inner_work(&mut self, docker: &'d Docker, id: Option<String>) {
-        if let Some(id) = id {
-            self.set_container(&docker, &id);
-            let mut container = self.container.as_ref().unwrap();
-            let mut logs_stream = container.logs(
-                &LogsOpts::builder()
-                    .stderr(true)
-                    .stdout(true)
-                    .follow(true)
-                    .all()
-                    .build(),
-            );
-            loop {
-                tokio::select! {
-                    log_data = logs_stream.next() => {
-                        if let Some(data) = log_data {
-                            match data {
-                                Ok(chunk) => {
-                                    self.logs.0.push(chunk);
-                                }
-                                Err(e) => {
-                                    error!("[logs-worker] reading chunk failed: {}", e);
-                                }
-                            }
-                        }
-                    }
-                    _ = self.rx_want_data.recv() => self.send_logs().await,
-                    _id = self.rx_id.recv() => if let Some(_id) = _id {
-                        if self.set_container(&docker, &_id) {
-                            container = self.container.as_ref().unwrap();
-                            logs_stream = container.logs(
-                                &LogsOpts::builder()
-                                    .stderr(true)
-                                    .stdout(true)
-                                    .follow(true)
-                                    .all()
-                                    .build(),
-                            );
-
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    pub async fn work(mut self, docker: Docker) -> Result<()> {
-        log::debug!("[logs-worker] starting...");
+    pub async fn work(mut self, docker: Docker) {
+        let container = docker.containers().get(&self.current_id);
+        let mut logs_stream = container.logs(
+            &LogsOpts::builder()
+                .stderr(true)
+                .stdout(true)
+                .follow(true)
+                .all()
+                .build(),
+        );
         loop {
             tokio::select! {
-                id = self.rx_id.recv() => self.inner_work(&docker, id).await,
-                _ = self.rx_want_data.recv() => self.send_logs().await,
+                log_data = logs_stream.next() => {
+                    log::trace!("got data {:?}", log_data);
+                    if let Some(data) = log_data {
+                        match data {
+                            Ok(chunk) => {
+                                self.logs.0.push(chunk);
+                            }
+                            Err(e) => {
+                                error!("reading chunk failed: {}", e);
+                            }
+                        }
+                    } else {
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    }
+                }
+                event = self.rx_events.recv() => {
+                    match event {
+                        Some(LogWorkerEvent::WantData) => self.send_logs().await,
+                        Some(LogWorkerEvent::Kill) => break,
+                        None => continue,
+
+                    }
+                }
             }
         }
     }

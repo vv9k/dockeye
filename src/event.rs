@@ -17,27 +17,27 @@ pub struct ImageInspectInfo {
 pub enum EventRequest {
     ListContainers(Option<ContainerListOpts>),
     ListImages(Option<ImageListOpts>),
-    InspectContainer { id: String },
     InspectImage { id: String },
     DeleteContainer { id: String },
     DeleteImage { id: String },
-    ContainerStatsStart { id: String },
     ContainerStats,
     ContainerLogs,
+    ContainerDetails,
     StopContainer { id: String },
     UnpauseContainer { id: String },
     PauseContainer { id: String },
     StartContainer { id: String },
+    ContainerTraceStart { id: String },
 }
 
 #[derive(Debug)]
 pub enum EventResponse {
     ListContainers(Vec<ContainerInfo>),
     ListImages(Vec<ImageInfo>),
-    InspectContainer(Box<ContainerDetails>),
     InspectImage(Box<ImageInspectInfo>),
     ContainerStats(Box<RunningContainerStats>),
     ContainerLogs(Box<Logs>),
+    ContainerDetails(Box<ContainerDetails>),
     DeleteContainer(String),
     DeleteImage(DeleteStatus),
     StopContainer(docker_api::Result<()>),

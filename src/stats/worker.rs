@@ -50,7 +50,7 @@ impl<'d> StatsWorker<'d> {
 
     fn set_container(&mut self, docker: &'d Docker, id: &str) {
         if Some(id) != self.current_id.as_deref() {
-            debug!("[stats-worker] changing container to {}", id);
+            debug!("changing container to {}", id);
             self.current_id = Some(id.to_string());
             self.container = Some(docker.containers().get(id));
             self.stats.0.clear();
@@ -61,9 +61,9 @@ impl<'d> StatsWorker<'d> {
     }
 
     async fn send_stats(&mut self) {
-        debug!("[stats-worker] got poll data request, sending info");
+        debug!("got poll data request, sending info");
         if let Err(e) = self.tx_stats.send(self.stats.clone()).await {
-            error!("[stats-worker] failed to send container info: {}", e);
+            error!("failed to send container info: {}", e);
         }
     }
 
@@ -79,7 +79,7 @@ impl<'d> StatsWorker<'d> {
                         match data {
                             Some(data) => match data {
                                 Ok(data) => {
-                                    trace!("[stats-worker] adding datapoint");
+                                    trace!("adding datapoint");
                                     let (_cpu, _sys) = data.precpu_stats.as_ref()
                                         .map(|data|
                                             (data.cpu_usage.total_usage, data.system_cpu_usage.unwrap_or_default())
@@ -94,11 +94,11 @@ impl<'d> StatsWorker<'d> {
                                     self.prev_cpu = _cpu;
                                     self.prev_sys = _sys;
                                 }
-                                Err(e) => error!("[stats-worker] failed to check container stats: {}", e),
+                                Err(e) => error!("failed to check container stats: {}", e),
                             },
                             None => {
-                                error!("[stats-worker] no container stats available");
-                                return;
+                                log::trace!("no container stats available");
+                                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                             },
                         }
                     }

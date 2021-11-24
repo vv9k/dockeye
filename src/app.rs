@@ -221,23 +221,16 @@ impl App {
         )));
         self.send_event_notify(EventRequest::ListImages(None));
         if self.current_container.is_some() {
-            self.send_event_notify(EventRequest::InspectContainer {
-                id: self
-                    .current_container
-                    .as_ref()
-                    .map(|c| c.id.as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-            });
-        }
-        if self
-            .current_container
-            .as_ref()
-            .map(|c| containers::is_running(c))
-            .unwrap_or_default()
-        {
-            self.send_event_notify(EventRequest::ContainerStats);
+            self.send_event_notify(EventRequest::ContainerDetails);
             self.send_event_notify(EventRequest::ContainerLogs);
+            if self
+                .current_container
+                .as_ref()
+                .map(|c| containers::is_running(&c))
+                .unwrap_or_default()
+            {
+                self.send_event_notify(EventRequest::ContainerStats);
+            }
         }
         self.update_time = SystemTime::now();
     }
@@ -248,7 +241,7 @@ impl App {
             match event {
                 EventResponse::ListContainers(containers) => self.containers = containers,
                 EventResponse::ListImages(images) => self.images = images,
-                EventResponse::InspectContainer(container) => self.set_container(container),
+                EventResponse::ContainerDetails(container) => self.set_container(container),
                 EventResponse::InspectImage(image) => self.current_image = Some(image),
                 EventResponse::DeleteContainer(msg) => self.add_notification(msg),
                 EventResponse::DeleteImage(status) => {
@@ -316,12 +309,11 @@ impl App {
 
         if changed {
             self.current_stats = None;
-            if containers::is_running(&container) {
-                if let Err(e) = self.send_event(EventRequest::ContainerStatsStart {
-                    id: container.id.clone(),
-                }) {
-                    self.add_notification(e);
-                }
+            self.current_logs = None;
+            if let Err(e) = self.send_event(EventRequest::ContainerTraceStart {
+                id: container.id.clone(),
+            }) {
+                self.add_notification(e);
             }
         }
 
