@@ -1,5 +1,5 @@
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::logs::{Logs, LogsWorker};
+use crate::logs::LogsWorker;
 use crate::stats::worker::StatsWorker;
 
 use anyhow::Result;
@@ -48,17 +48,8 @@ impl DockerWorker {
             let (stats_worker, tx_stats_id, tx_want_stats, mut rx_stats) = StatsWorker::new();
             let _ = tokio::spawn(stats_worker.work(docker.clone()));
 
-            let (tx_logs, mut rx_logs) = mpsc::channel::<Box<Logs>>(8);
-            let (tx_want_logs, rx_want_logs) = mpsc::channel::<()>(64);
-            let (tx_logs_id, rx_logs_id) = mpsc::channel::<String>(16);
-            let logs_worker = LogsWorker {
-                rx_id: rx_logs_id,
-                tx_logs,
-                rx_want_data: rx_want_logs,
-                docker: docker.clone(),
-                current_id: None,
-            };
-            let _ = tokio::spawn(logs_worker.work());
+            let (logs_worker, tx_logs_id, tx_want_logs, mut rx_logs) = LogsWorker::new();
+            let _ = tokio::spawn(logs_worker.work(docker.clone()));
 
             loop {
                 if let Some(req) = inner_rx_req.recv().await {

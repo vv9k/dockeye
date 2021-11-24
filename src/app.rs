@@ -244,7 +244,7 @@ impl App {
 
     fn read_worker_events(&mut self) {
         while let Ok(event) = self.rx_rsp.try_recv() {
-            log::warn!("[gui] received event: {:?}", event);
+            //log::warn!("[gui] received event: {:?}", event);
             match event {
                 EventResponse::ListContainers(containers) => self.containers = containers,
                 EventResponse::ListImages(images) => self.images = images,
