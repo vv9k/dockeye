@@ -1,16 +1,15 @@
-use anyhow::Result;
 use bytes::Bytes;
 use docker_api::{api::LogsOpts, Docker};
 use futures::StreamExt;
 use log::{debug, error};
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Logs(pub Vec<Bytes>);
 
 #[derive(Debug, PartialEq)]
 pub enum LogWorkerEvent {
-    WantData,
+    PollData,
     Kill,
 }
 
@@ -46,7 +45,7 @@ impl LogsWorker {
     }
     async fn send_logs(&mut self) {
         debug!("got poll data request, sending logs");
-        if let Err(e) = self.tx_logs.send(self.logs.clone()).await {
+        if let Err(e) = self.tx_logs.send(std::mem::take(&mut self.logs)).await {
             error!("failed to send container logs: {}", e);
         }
     }
@@ -63,10 +62,10 @@ impl LogsWorker {
         loop {
             tokio::select! {
                 log_data = logs_stream.next() => {
-                    log::trace!("got data {:?}", log_data);
                     if let Some(data) = log_data {
                         match data {
                             Ok(chunk) => {
+                            log::trace!("adding chunk");
                                 self.logs.0.push(chunk);
                             }
                             Err(e) => {
@@ -74,12 +73,12 @@ impl LogsWorker {
                             }
                         }
                     } else {
-                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                     }
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(LogWorkerEvent::WantData) => self.send_logs().await,
+                        Some(LogWorkerEvent::PollData) => self.send_logs().await,
                         Some(LogWorkerEvent::Kill) => break,
                         None => continue,
 

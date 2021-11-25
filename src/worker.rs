@@ -1,6 +1,6 @@
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
 use crate::logs::{LogWorkerEvent, LogsWorker};
-use crate::stats::worker::StatsWorker;
+use crate::stats::worker::{StatsWorker, StatsWorkerEvent};
 
 use anyhow::Result;
 use docker_api::Docker;
@@ -45,12 +45,9 @@ impl DockerWorker {
             }
         });
         let worker = tokio::spawn(async move {
-            let (stats_worker, tx_stats_id, tx_want_stats, mut rx_stats) = StatsWorker::new();
-            let _ = tokio::spawn(stats_worker.work(docker.clone()));
-
+            let mut current_id = None;
+            let (_, mut tx_stats_event, mut rx_stats) = StatsWorker::new("");
             let (_, mut tx_logs_event, mut rx_logs) = LogsWorker::new("");
-
-            let mut current_id = String::new();
 
             loop {
                 if let Some(req) = inner_rx_req.recv().await {
@@ -78,21 +75,32 @@ impl DockerWorker {
                             }
                         }
                         EventRequest::ContainerTraceStart { id } => {
-                            current_id = id.clone();
-                            if let Err(e) = tx_stats_id.send(id.clone()).await {
-                                error!("failed to start stats collection: {}", e);
-                            } else {
-                                trace!("sent new id to stats worker");
+                            if Some(&id) == current_id.as_ref() {
+                                continue;
                             }
-                            if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
-                                error!("failed to send kill event to log worker: {}", e);
+
+                            if current_id.is_some() {
+                                if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
+                                    error!("failed to send kill event to log worker: {}", e);
+                                }
+                                if let Err(e) = tx_stats_event.send(StatsWorkerEvent::Kill).await {
+                                    error!("failed to send kill event to stats worker: {}", e);
+                                }
                             }
-                            let w = LogsWorker::new(&current_id);
+
+                            current_id = Some(id.clone());
+
+                            let s = StatsWorker::new(&id);
+                            tx_stats_event = s.1;
+                            rx_stats = s.2;
+                            let _ = tokio::spawn(s.0.work(docker.clone()));
+
+                            let w = LogsWorker::new(&id);
                             tx_logs_event = w.1;
                             rx_logs = w.2;
                             let _ = tokio::spawn(w.0.work(docker.clone()));
 
-                            match docker.containers().get(&current_id).inspect().await {
+                            match docker.containers().get(&id).inspect().await {
                                 Ok(container) => {
                                     EventResponse::ContainerDetails(Box::new(container))
                                 }
@@ -103,14 +111,19 @@ impl DockerWorker {
                             }
                         }
                         EventRequest::ContainerDetails => {
-                            match docker.containers().get(&current_id).inspect().await {
-                                Ok(container) => {
-                                    EventResponse::ContainerDetails(Box::new(container))
+                            if let Some(id) = &current_id {
+                                match docker.containers().get(id).inspect().await {
+                                    Ok(container) => {
+                                        EventResponse::ContainerDetails(Box::new(container))
+                                    }
+                                    Err(e) => {
+                                        error!("failed to inspect a container: {}", e);
+                                        continue;
+                                    }
                                 }
-                                Err(e) => {
-                                    error!("failed to inspect a container: {}", e);
-                                    continue;
-                                }
+                            } else {
+                                error!("failed to inspect a container: no current id set");
+                                continue;
                             }
                         }
                         EventRequest::InspectImage { id } => {
@@ -168,7 +181,7 @@ impl DockerWorker {
                             }
                         }
                         EventRequest::ContainerStats => {
-                            if let Err(e) = tx_want_stats.send(()).await {
+                            if let Err(e) = tx_stats_event.send(StatsWorkerEvent::PollData).await {
                                 error!("failed to collect stats data: {}", e);
                                 continue;
                             }
@@ -182,7 +195,7 @@ impl DockerWorker {
                             }
                         }
                         EventRequest::ContainerLogs => {
-                            if let Err(e) = tx_logs_event.send(LogWorkerEvent::WantData).await {
+                            if let Err(e) = tx_logs_event.send(LogWorkerEvent::PollData).await {
                                 error!("failed to collect logs: {}", e);
                                 continue;
                             }

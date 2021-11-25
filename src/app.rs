@@ -78,6 +78,8 @@ pub struct App {
     current_logs: Option<String>,
     images: Vec<ImageInfo>,
     current_image: Option<Box<ImageInspectInfo>>,
+
+    logs_page: usize,
 }
 
 impl epi::App for App {
@@ -122,7 +124,12 @@ impl App {
 
     #[inline]
     fn side_panel_size(&self) -> f32 {
-        self.current_window.width() / 6.
+        (self.current_window.width() / 6.).max(100.)
+    }
+
+    #[inline]
+    fn graph_height(&self) -> f32 {
+        (self.current_window.height() / 5.).max(100.)
     }
 
     fn side_panel(&mut self, ctx: &egui::CtxRef) {
@@ -194,6 +201,7 @@ impl App {
             current_logs: None,
             images: vec![],
             current_image: None,
+            logs_page: 0,
         }
     }
 
@@ -226,7 +234,7 @@ impl App {
             if self
                 .current_container
                 .as_ref()
-                .map(|c| containers::is_running(&c))
+                .map(|c| containers::is_running(c))
                 .unwrap_or_default()
             {
                 self.send_event_notify(EventRequest::ContainerStats);
@@ -261,12 +269,22 @@ impl App {
                     });
                     self.add_notification(status)
                 }
-                EventResponse::ContainerStats(stats) => self.current_stats = Some(stats),
+                EventResponse::ContainerStats(new_stats) => {
+                    if let Some(stats) = &mut self.current_stats {
+                        stats.extend(*new_stats);
+                    } else {
+                        self.current_stats = Some(new_stats)
+                    }
+                }
                 EventResponse::ContainerLogs(logs) => {
                     let bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
                     let raw_bytes = strip_ansi_escapes::strip(&bytes).unwrap_or(bytes);
                     let logs = String::from_utf8_lossy(&raw_bytes);
-                    self.current_logs = Some(logs.to_string());
+                    if let Some(current_logs) = &mut self.current_logs {
+                        current_logs.push_str(&logs);
+                    } else {
+                        self.current_logs = Some(logs.to_string());
+                    }
                 }
                 EventResponse::StartContainer(res)
                 | EventResponse::StopContainer(res)
@@ -310,6 +328,7 @@ impl App {
         if changed {
             self.current_stats = None;
             self.current_logs = None;
+            self.logs_page = 0;
             if let Err(e) = self.send_event(EventRequest::ContainerTraceStart {
                 id: container.id.clone(),
             }) {

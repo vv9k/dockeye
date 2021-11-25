@@ -2,16 +2,22 @@ pub mod worker;
 
 use docker_api::api::{CpuStats, MemoryStat, MemoryStats, Stats};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct RunningContainerStats(pub Vec<(std::time::Duration, StatsWrapper)>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct StatsWrapper {
     pub cpu_usage: f64,
     pub mem_usage: f64,
     pub mem_percent: f64,
     pub mem_limit: f64,
     pub mem_stat: Option<MemoryStat>,
+}
+
+impl RunningContainerStats {
+    pub fn extend(&mut self, stats: RunningContainerStats) {
+        self.0.extend(stats.0.into_iter())
+    }
 }
 
 fn calculate_mem_usage(stats: Option<&MemoryStats>) -> f64 {

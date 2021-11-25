@@ -345,6 +345,7 @@ impl App {
                     Grid::new("stats_grid").show(ui, |ui| {
                         if let Some(last) = stats.0.last() {
                             key_val!(ui, "CPU usage:", format!("{:0.2}%", last.1.cpu_usage));
+
                             key_val!(
                                 ui,
                                 "Memory usage:",
@@ -444,11 +445,10 @@ impl App {
                             }
                         }
                     });
-
                     ui.add(
-                        Plot::new("usage")
+                        Plot::new("CPU usage")
                             .data_aspect(1.5)
-                            .height(500.)
+                            .height(self.graph_height())
                             .include_x(0.)
                             .include_y(0.)
                             .legend(egui::widgets::plot::Legend {
@@ -459,7 +459,18 @@ impl App {
                                 Line::new(cpu_data)
                                     .name("CPU usage %")
                                     .color(egui::Color32::YELLOW),
-                            )
+                            ),
+                    );
+                    ui.add(
+                        Plot::new("Memory usage")
+                            .data_aspect(1.5)
+                            .height(self.graph_height())
+                            .include_x(0.)
+                            .include_y(0.)
+                            .legend(egui::widgets::plot::Legend {
+                                position: egui::widgets::plot::Corner::RightTop,
+                                ..Default::default()
+                            })
                             .line(
                                 Line::new(mem_data)
                                     .name("Memory usage %")
@@ -475,17 +486,27 @@ impl App {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
                 .show(ui, |ui| {
-                    let split = logs.split('\n');
-                    let max_count = crate::checked_log_10(split.clone().count()).unwrap_or(1) + 1;
+                    const MAX_LINES: usize = 1024;
 
-                    for (i, line) in split.enumerate().map(|(i, line)| (i + 1, line)) {
+                    let split = logs.split('\n');
+                    let line_count = split.clone().count();
+                    let total_pages = if line_count % MAX_LINES == 0 {
+                        line_count / MAX_LINES
+                    } else {
+                        (line_count / MAX_LINES) + 1
+                    };
+
+                    let lines = split.skip(self.logs_page * MAX_LINES).take(MAX_LINES);
+                    let max_count = crate::checked_log_10(line_count).unwrap_or(1) + 1;
+
+                    for (i, line) in lines.enumerate().map(|(i, line)| (i + 1, line)) {
                         ui.horizontal(|ui| {
                             let i_count = crate::checked_log_10(i).unwrap_or(1) + 1;
                             ui.add(
                                 Label::new(format!(
                                     "{}{}|",
                                     " ".repeat((max_count - i_count) as usize),
-                                    i
+                                    i + self.logs_page * MAX_LINES
                                 ))
                                 .code()
                                 .strong(),
@@ -493,6 +514,19 @@ impl App {
                             ui.add(Label::new(line).monospace());
                         });
                     }
+
+                    ui.add_space(10.);
+                    ui.label(format!("Page: {} / {}", self.logs_page + 1, total_pages));
+
+                    ui.horizontal(|ui| {
+                        if ui.button("previous page").clicked() && self.logs_page > 0 {
+                            self.logs_page -= 1;
+                        }
+
+                        if ui.button("next page").clicked() && (self.logs_page + 1) < total_pages {
+                            self.logs_page += 1;
+                        }
+                    });
                 });
         }
     }
