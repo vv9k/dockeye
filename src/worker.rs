@@ -16,7 +16,7 @@ pub struct DockerWorker {
 
 impl DockerWorker {
     pub fn new(
-        uri: impl AsRef<str>,
+        uri: String,
         rx_req: mpsc::Receiver<EventRequest>,
         tx_rsp: mpsc::Sender<EventResponse>,
     ) -> Result<Self> {
@@ -234,5 +234,18 @@ impl DockerWorker {
         });
         let _ = tokio::join!(listener, worker);
         Ok(())
+    }
+
+    pub fn spawn(
+        runtime: tokio::runtime::Runtime,
+        docker_addr: String,
+        rx_req: mpsc::Receiver<EventRequest>,
+        tx_rsp: mpsc::Sender<EventResponse>,
+    ) {
+        std::thread::spawn(move || -> Result<()> {
+            let worker = DockerWorker::new(docker_addr, rx_req, tx_rsp)?;
+
+            runtime.block_on(worker.work())
+        });
     }
 }

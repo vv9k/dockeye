@@ -4,6 +4,7 @@ mod logs;
 mod stats;
 mod worker;
 pub use app::App;
+use clipboard::ClipboardProvider;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
 pub use logs::{Logs, LogsWorker};
 pub use worker::DockerWorker;
@@ -55,3 +56,13 @@ pub const fn checked_log_10(num: usize) -> Option<usize> {
         Some(n)
     }
 }
+
+fn save_to_clipboard(text: String) -> Result<(), Box<dyn std::error::Error>> {
+    let mut ctx: clipboard::ClipboardContext = ClipboardProvider::new()?;
+    ctx.set_contents(text)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub const DEFAULT_DOCKER_ADDR: &str = "unix:///var/run/docker.sock";
+#[cfg(target_os = "macos")]
+pub const DEFAULT_DOCKER_ADDR: &str = "unix:///run/docker.sock";

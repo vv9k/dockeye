@@ -292,7 +292,7 @@ impl App {
                 egui::CollapsingHeader::new("").show(ui, |ui| {
                     egui::Grid::new("networks_grid").show(ui, |ui| {
                         for (name, entry) in &container.network_settings.networks {
-                            key!(ui, name);
+                            key!(ui, name.as_str());
                             ui.end_row();
                             ui.scope(|_| {});
                             egui::Grid::new(&name).show(ui, |ui| {
@@ -486,47 +486,41 @@ impl App {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
                 .show(ui, |ui| {
-                    const MAX_LINES: usize = 1024;
+                    //let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
+                    //let mut layout_job: egui::text::LayoutJob = my_memoized_highlighter(string);
+                    //layout_job.wrap_width = wrap_width;
+                    //ui.fonts().layout_job(layout_job)
+                    //};
 
-                    let split = logs.split('\n');
-                    let line_count = split.clone().count();
-                    let total_pages = if line_count % MAX_LINES == 0 {
-                        line_count / MAX_LINES
-                    } else {
-                        (line_count / MAX_LINES) + 1
-                    };
+                    ui.add(egui::TextEdit::multiline(&mut logs.as_str()).code_editor());
+                    //for (i, line) in lines.enumerate().map(|(i, line)| (i + 1, line)) {
+                    //ui.horizontal(|ui| {
+                    //let i_count = crate::checked_log_10(i).unwrap_or(1) + 1;
+                    //ui.add(
+                    //Label::new(format!(
+                    //"{}{}|",
+                    //" ".repeat((max_count - i_count) as usize),
+                    //i + self.logs_page * MAX_LINES
+                    //))
+                    //.code()
+                    //.strong(),
+                    //);
+                    //ui.add(Label::new(line).monospace());
+                    //});
+                    //}
 
-                    let lines = split.skip(self.logs_page * MAX_LINES).take(MAX_LINES);
-                    let max_count = crate::checked_log_10(line_count).unwrap_or(1) + 1;
+                    //ui.add_space(10.);
+                    //ui.label(format!("Page: {} / {}", self.logs_page + 1, total_pages));
 
-                    for (i, line) in lines.enumerate().map(|(i, line)| (i + 1, line)) {
-                        ui.horizontal(|ui| {
-                            let i_count = crate::checked_log_10(i).unwrap_or(1) + 1;
-                            ui.add(
-                                Label::new(format!(
-                                    "{}{}|",
-                                    " ".repeat((max_count - i_count) as usize),
-                                    i + self.logs_page * MAX_LINES
-                                ))
-                                .code()
-                                .strong(),
-                            );
-                            ui.add(Label::new(line).monospace());
-                        });
-                    }
+                    //ui.horizontal(|ui| {
+                    //if ui.button("previous page").clicked() && self.logs_page > 0 {
+                    //self.logs_page -= 1;
+                    //}
 
-                    ui.add_space(10.);
-                    ui.label(format!("Page: {} / {}", self.logs_page + 1, total_pages));
-
-                    ui.horizontal(|ui| {
-                        if ui.button("previous page").clicked() && self.logs_page > 0 {
-                            self.logs_page -= 1;
-                        }
-
-                        if ui.button("next page").clicked() && (self.logs_page + 1) < total_pages {
-                            self.logs_page += 1;
-                        }
-                    });
+                    //if ui.button("next page").clicked() && (self.logs_page + 1) < total_pages {
+                    //self.logs_page += 1;
+                    //}
+                    //});
                 });
         }
     }

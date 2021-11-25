@@ -17,6 +17,7 @@ const DELETE_ICON: &str = "\u{1F5D9}";
 const PLAY_ICON: &str = "\u{25B6}";
 const PAUSE_ICON: &str = "\u{23F8}";
 const STOP_ICON: &str = "\u{23F9}";
+const SETTINGS_ICON: &str = "\u{2699}";
 
 macro_rules! key {
     ($ui:ident, $k:expr) => {
@@ -25,7 +26,20 @@ macro_rules! key {
 }
 macro_rules! val {
     ($ui:ident, $v:expr) => {
-        $ui.add(Label::new($v).monospace());
+        if $ui
+            .add(Label::new($v).monospace().sense(egui::Sense {
+                click: true,
+                focusable: true,
+                drag: false,
+            }))
+            .on_hover_text("secondary-click to copy")
+            .secondary_clicked()
+        {
+            log::debug!("setting clipboard content to `{}`", $v);
+            if let Err(e) = crate::save_to_clipboard($v.to_string()) {
+                log::error!("failed to save content to clipboard - {}", e);
+            }
+        }
     };
 }
 macro_rules! key_val {
@@ -59,6 +73,40 @@ impl Default for Tab {
     }
 }
 
+#[derive(Default, Debug)]
+pub struct SettingsWindow {
+    show: bool,
+    config: Config,
+}
+
+impl SettingsWindow {
+    pub fn toggle(&mut self) {
+        self.show = !self.show;
+    }
+
+    pub fn display(&mut self, ctx: &egui::CtxRef) {
+        egui::Window::new("settings")
+            .open(&mut self.show)
+            .show(ctx, |ui| {
+                ui.label("Docker address:");
+                ui.text_edit_singleline(&mut self.config.docker_addr);
+            });
+    }
+}
+
+#[derive(Debug)]
+pub struct Config {
+    docker_addr: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            docker_addr: crate::DEFAULT_DOCKER_ADDR.to_string(),
+        }
+    }
+}
+
 pub struct App {
     tx_req: mpsc::Sender<EventRequest>,
     rx_rsp: mpsc::Receiver<EventResponse>,
@@ -80,6 +128,8 @@ pub struct App {
     current_image: Option<Box<ImageInspectInfo>>,
 
     logs_page: usize,
+
+    settings_window: SettingsWindow,
 }
 
 impl epi::App for App {
@@ -98,6 +148,13 @@ impl epi::App for App {
     fn save(&mut self, _storage: &mut dyn epi::Storage) {}
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
+        self.display(ctx);
+        self.display_windows(ctx);
+    }
+}
+
+impl App {
+    pub fn display(&mut self, ctx: &egui::CtxRef) {
         self.current_window = ctx.available_rect();
         self.handle_data_update();
         self.read_worker_events();
@@ -107,9 +164,11 @@ impl epi::App for App {
         self.side_panel(ctx);
         self.central_panel(ctx);
     }
-}
 
-impl App {
+    fn display_windows(&mut self, ctx: &egui::CtxRef) {
+        self.settings_window.display(ctx);
+    }
+
     fn top_panel(&mut self, ctx: &egui::CtxRef) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             let tabs = [Tab::Containers, Tab::Images];
@@ -117,6 +176,11 @@ impl App {
             egui::Grid::new("tab_grid").show(ui, |ui| {
                 for tab in tabs {
                     ui.selectable_value(&mut self.current_tab, tab, tab.as_ref());
+                }
+            });
+            ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                if ui.button(SETTINGS_ICON).clicked() {
+                    self.settings_window.toggle();
                 }
             });
         });
@@ -202,6 +266,8 @@ impl App {
             images: vec![],
             current_image: None,
             logs_page: 0,
+
+            settings_window: SettingsWindow::default(),
         }
     }
 
