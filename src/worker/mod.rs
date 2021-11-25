@@ -1,6 +1,9 @@
+mod logs;
+mod stats;
+
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::logs::{LogWorkerEvent, LogsWorker};
-use crate::stats::worker::{StatsWorker, StatsWorkerEvent};
+pub use logs::{LogWorkerEvent, Logs, LogsWorker};
+pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
 use anyhow::Result;
 use docker_api::Docker;

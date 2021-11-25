@@ -1,5 +1,4 @@
-use crate::logs::Logs;
-use crate::stats::RunningContainerStats;
+use crate::worker::{Logs, RunningContainerStats};
 
 use docker_api::api::{
     ContainerDetails, ContainerInfo, ContainerListOpts, DeleteStatus, DistributionInspectInfo,

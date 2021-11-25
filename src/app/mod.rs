@@ -2,7 +2,7 @@ mod containers;
 mod images;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::stats::RunningContainerStats;
+use crate::worker::RunningContainerStats;
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerInfo, ContainerListOpts, ImageInfo, Status};
 use eframe::{egui, epi};

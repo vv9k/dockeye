@@ -1,12 +1,9 @@
 mod app;
 mod event;
-mod logs;
-mod stats;
 mod worker;
 pub use app::App;
 use clipboard::ClipboardProvider;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
-pub use logs::{Logs, LogsWorker};
 pub use worker::DockerWorker;
 
 fn conv_metric(value: f64, unit: &str) -> String {
@@ -40,21 +37,6 @@ pub fn conv_fb(bytes: f64) -> String {
 
 pub fn conv_b(bytes: u64) -> String {
     conv_fb(bytes as f64)
-}
-
-pub const fn checked_log_10(num: usize) -> Option<usize> {
-    if num == 0 {
-        None
-    } else {
-        let mut n = 0;
-        let mut r = num;
-
-        while r >= 10 {
-            r /= 10;
-            n += 1;
-        }
-        Some(n)
-    }
 }
 
 fn save_to_clipboard(text: String) -> Result<(), Box<dyn std::error::Error>> {
