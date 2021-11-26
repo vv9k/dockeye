@@ -575,7 +575,7 @@ dependencies = [
 [[package]]
 name = "docker-api"
 version = "0.6.0"
-source = "git+https://github.com/vv9k/docker-api-rs#0f35c3871d5f4e989895548dbd24f0fc29d01d0c"
+source = "git+https://github.com/vv9k/docker-api-rs#fc518baba858b3813691a0cf001f44533415d38b"
 dependencies = [
  "base64",
  "byteorder",
@@ -1835,9 +1835,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.71"
+version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063bf466a64011ac24040a49009724ee60a57da1b437617ceb32e53ad61bfb19"
+checksum = "d0ffa0837f2dfa6fb90868c2b5468cad482e175f7dad97e7421951e663f2b527"
 dependencies = [
  "itoa",
  "ryu",
@@ -1940,9 +1940,9 @@ checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
 name = "syn"
-version = "1.0.81"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2afee18b8beb5a596ecb4a2dce128c719b4ba399d34126b9e4396e3f9860966"
+checksum = "8daf5dd0bb60cbd4137b1b587d2fc0ae729bc07cf01cd70b36a1ed5ade3b9d59"
 dependencies = [
  "proc-macro2",
  "quote",

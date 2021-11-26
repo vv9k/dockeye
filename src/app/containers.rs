@@ -371,6 +371,28 @@ impl App {
                                 );
                             }
 
+                            if let Some(blkio_stat) = &last.1.blkio_stat {
+                                let (rx, tx) = blkio_stat
+                                    .io_service_bytes_recursive
+                                    .as_ref()
+                                    .map(|stats| {
+                                        stats.into_iter().fold((0, 0), |mut acc, stat| {
+                                            match stat.op.chars().next() {
+                                                Some('r' | 'R') => acc.0 += stat.value,
+                                                Some('w' | 'W') => acc.1 += stat.value,
+                                                _ => {}
+                                            }
+                                            acc
+                                        })
+                                    })
+                                    .unwrap_or((0, 0));
+                                key_val!(
+                                    ui,
+                                    "Disk I/O:",
+                                    format!("{} / {}", crate::conv_b(rx), crate::conv_b(tx))
+                                );
+                            }
+
                             if let Some(mem_stat) = &last.1.mem_stat {
                                 ui.add(Label::new("Memory stats:").strong());
                                 egui::CollapsingHeader::new("")

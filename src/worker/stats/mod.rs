@@ -1,4 +1,4 @@
-use docker_api::api::{CpuStats, MemoryStat, MemoryStats, NetworkStats, Stats};
+use docker_api::api::{BlkioStats, CpuStats, MemoryStat, MemoryStats, NetworkStats, Stats};
 use docker_api::Docker;
 use futures::StreamExt;
 use log::{debug, error, trace};
@@ -23,6 +23,7 @@ pub struct StatsWrapper {
     pub mem_limit: f64,
     pub mem_stat: Option<MemoryStat>,
     pub net_stat: Option<HashMap<String, NetworkStats>>,
+    pub blkio_stat: Option<BlkioStats>,
 }
 
 impl StatsWrapper {
@@ -44,6 +45,7 @@ impl StatsWrapper {
             mem_limit,
             mem_stat: stats.memory_stats.and_then(|stats| stats.stats),
             net_stat: stats.networks,
+            blkio_stat: stats.blkio_stats,
         }
     }
 }
