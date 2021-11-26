@@ -357,11 +357,26 @@ impl App {
                                 )
                             );
 
+                            if let Some(net_stat) = &last.1.net_stat {
+                                let (rx, tx) =
+                                    net_stat.into_iter().fold((0, 0), |mut acc, (_, stats)| {
+                                        acc.0 += stats.rx_bytes;
+                                        acc.1 += stats.tx_bytes;
+                                        acc
+                                    });
+                                key_val!(
+                                    ui,
+                                    "Network I/O:",
+                                    format!("{} / {}", crate::conv_b(rx), crate::conv_b(tx))
+                                );
+                            }
+
                             if let Some(mem_stat) = &last.1.mem_stat {
                                 ui.add(Label::new("Memory stats:").strong());
-                                egui::CollapsingHeader::new("").default_open(false).show(
-                                    ui,
-                                    |ui| {
+                                egui::CollapsingHeader::new("")
+                                    .id_source("mem_stats")
+                                    .default_open(false)
+                                    .show(ui, |ui| {
                                         Grid::new("mem_stats_grid").show(ui, |ui| {
                                             macro_rules! mem_key_val {
                                                 ($k:literal, $v:expr) => {
@@ -440,8 +455,49 @@ impl App {
                                                 mem_stat.hierarchical_memsw_limit
                                             );
                                         });
-                                    },
-                                );
+                                    });
+                            }
+                            ui.end_row();
+
+                            if let Some(net_stat) = &last.1.net_stat {
+                                ui.add(Label::new("Network stats:").strong());
+                                egui::CollapsingHeader::new("")
+                                    .id_source("net_stats")
+                                    .default_open(false)
+                                    .show(ui, |ui| {
+                                        for (network, stats) in net_stat {
+                                            egui::CollapsingHeader::new(&network)
+                                                .default_open(false)
+                                                .show(ui, |ui| {
+                                                    Grid::new(&network).show(ui, |ui| {
+                                                        key_val!(ui, "rx_bytes", stats.rx_bytes);
+                                                        key_val!(ui, "tx_bytes", stats.tx_bytes);
+                                                        key_val!(
+                                                            ui,
+                                                            "rx_packets",
+                                                            stats.rx_packets
+                                                        );
+                                                        key_val!(
+                                                            ui,
+                                                            "tx_packets",
+                                                            stats.tx_packets
+                                                        );
+                                                        key_val!(
+                                                            ui,
+                                                            "rx_dropped",
+                                                            stats.rx_dropped
+                                                        );
+                                                        key_val!(
+                                                            ui,
+                                                            "tx_dropped",
+                                                            stats.tx_dropped
+                                                        );
+                                                        key_val!(ui, "rx_errors", stats.rx_errors);
+                                                        key_val!(ui, "tx_errors", stats.tx_errors);
+                                                    });
+                                                });
+                                        }
+                                    });
                             }
                         }
                     });

@@ -1,12 +1,19 @@
-use docker_api::api::{CpuStats, MemoryStat, MemoryStats, Stats};
+use docker_api::api::{CpuStats, MemoryStat, MemoryStats, NetworkStats, Stats};
 use docker_api::Docker;
 use futures::StreamExt;
 use log::{debug, error, trace};
+use std::collections::HashMap;
 use std::time::SystemTime;
 use tokio::sync::mpsc;
 
 #[derive(Debug, Default, Clone)]
 pub struct RunningContainerStats(pub Vec<(std::time::Duration, StatsWrapper)>);
+
+impl RunningContainerStats {
+    pub fn extend(&mut self, stats: RunningContainerStats) {
+        self.0.extend(stats.0.into_iter())
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct StatsWrapper {
@@ -15,11 +22,29 @@ pub struct StatsWrapper {
     pub mem_percent: f64,
     pub mem_limit: f64,
     pub mem_stat: Option<MemoryStat>,
+    pub net_stat: Option<HashMap<String, NetworkStats>>,
 }
 
-impl RunningContainerStats {
-    pub fn extend(&mut self, stats: RunningContainerStats) {
-        self.0.extend(stats.0.into_iter())
+impl StatsWrapper {
+    pub fn from(stats: Stats, prev_cpu: u64, prev_sys: u64) -> Self {
+        let cpu_usage = calculate_cpu_percent_usage(stats.cpu_stats.as_ref(), prev_cpu, prev_sys);
+
+        let mem_usage = calculate_mem_usage(stats.memory_stats.as_ref());
+        let mem_limit = stats
+            .memory_stats
+            .as_ref()
+            .and_then(|stats| stats.limit.map(|limit| limit as f64))
+            .unwrap_or_default();
+        let mem_percent = calculate_mem_percent(mem_usage, mem_limit);
+
+        Self {
+            cpu_usage,
+            mem_usage,
+            mem_percent,
+            mem_limit,
+            mem_stat: stats.memory_stats.and_then(|stats| stats.stats),
+            net_stat: stats.networks,
+        }
     }
 }
 
@@ -77,28 +102,6 @@ fn calculate_cpu_percent_usage(stats: Option<&CpuStats>, prev_cpu: u64, prev_sys
         }
     } else {
         0.
-    }
-}
-
-impl StatsWrapper {
-    pub fn from(stats: Stats, prev_cpu: u64, prev_sys: u64) -> Self {
-        let cpu_usage = calculate_cpu_percent_usage(stats.cpu_stats.as_ref(), prev_cpu, prev_sys);
-
-        let mem_usage = calculate_mem_usage(stats.memory_stats.as_ref());
-        let mem_limit = stats
-            .memory_stats
-            .as_ref()
-            .and_then(|stats| stats.limit.map(|limit| limit as f64))
-            .unwrap_or_default();
-        let mem_percent = calculate_mem_percent(mem_usage, mem_limit);
-
-        Self {
-            cpu_usage,
-            mem_usage,
-            mem_percent,
-            mem_limit,
-            mem_stat: stats.memory_stats.and_then(|stats| stats.stats),
-        }
     }
 }
 
