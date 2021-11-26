@@ -10,6 +10,89 @@ use std::collections::VecDeque;
 use std::time::SystemTime;
 use tokio::sync::mpsc;
 
+mod colors {
+    use egui::{
+        style::{Selection, Widgets},
+        Color32, Rgba, Stroke, Visuals,
+    };
+    use epaint::Shadow;
+    use lazy_static::lazy_static;
+
+    lazy_static! {
+        pub static ref D_BG_000: Color32 = Color32::from_rgb(0x0e, 0x12, 0x17);
+        pub static ref D_BG_00: Color32 = Color32::from_rgb(0x11, 0x16, 0x1b);
+        pub static ref D_BG_0: Color32 = Color32::from_rgb(0x16, 0x1c, 0x23);
+        pub static ref D_BG_1: Color32 = Color32::from_rgb(0x23, 0x2d, 0x38);
+        pub static ref D_BG_2: Color32 = Color32::from_rgb(0x31, 0x3f, 0x4e);
+        pub static ref D_BG_3: Color32 = Color32::from_rgb(0x41, 0x53, 0x67);
+        pub static ref D_FG_0: Color32 = Color32::from_rgb(0xe5, 0xde, 0xd6);
+        pub static ref D_BG_00_TRANSPARENT: Color32 = Rgba::from(*D_BG_00).multiply(0.96).into();
+        pub static ref D_BG_0_TRANSPARENT: Color32 = Rgba::from(*D_BG_0).multiply(0.96).into();
+        pub static ref D_BG_1_TRANSPARENT: Color32 = Rgba::from(*D_BG_1).multiply(0.96).into();
+        pub static ref D_BG_2_TRANSPARENT: Color32 = Rgba::from(*D_BG_2).multiply(0.96).into();
+        pub static ref D_BG_3_TRANSPARENT: Color32 = Rgba::from(*D_BG_3).multiply(0.96).into();
+        pub static ref L_BG_0: Color32 = Color32::from_rgb(0xbf, 0xbf, 0xbf);
+        pub static ref L_BG_1: Color32 = Color32::from_rgb(0xd4, 0xd3, 0xd4);
+        pub static ref L_BG_2: Color32 = Color32::from_rgb(0xd9, 0xd9, 0xd9);
+        pub static ref L_BG_3: Color32 = Color32::from_rgb(0xea, 0xea, 0xea);
+        pub static ref L_BG_4: Color32 = Color32::from_rgb(0xf9, 0xf9, 0xf9);
+        pub static ref L_BG_5: Color32 = Color32::from_rgb(0xff, 0xff, 0xff);
+        pub static ref L_BG_0_TRANSPARENT: Color32 = Rgba::from(*L_BG_0).multiply(0.86).into();
+        pub static ref L_BG_1_TRANSPARENT: Color32 = Rgba::from(*L_BG_1).multiply(0.86).into();
+        pub static ref L_BG_2_TRANSPARENT: Color32 = Rgba::from(*L_BG_2).multiply(0.86).into();
+        pub static ref L_BG_3_TRANSPARENT: Color32 = Rgba::from(*L_BG_3).multiply(0.86).into();
+        pub static ref L_BG_4_TRANSPARENT: Color32 = Rgba::from(*L_BG_4).multiply(0.86).into();
+        pub static ref L_BG_5_TRANSPARENT: Color32 = Rgba::from(*L_BG_5).multiply(0.86).into();
+        pub static ref L_FG_0: Color32 = *D_BG_0;
+    }
+
+    pub fn light_visuals() -> Visuals {
+        let mut widgets = Widgets::light();
+        widgets.noninteractive.bg_fill = *L_BG_3_TRANSPARENT;
+        widgets.inactive.bg_fill = *L_BG_3_TRANSPARENT;
+        widgets.inactive.bg_stroke = Stroke::new(0.5, *D_BG_3);
+        widgets.inactive.fg_stroke = Stroke::new(0.5, *D_BG_3);
+        widgets.hovered.bg_fill = *L_BG_4_TRANSPARENT;
+        widgets.hovered.bg_stroke = Stroke::new(1., *D_BG_1);
+        widgets.hovered.fg_stroke = Stroke::new(1., *D_BG_1);
+        widgets.active.bg_fill = *L_BG_5_TRANSPARENT;
+        widgets.active.fg_stroke = Stroke::new(1.5, *D_BG_0);
+        widgets.active.bg_stroke = Stroke::new(1.5, *D_BG_0);
+
+        Visuals {
+            dark_mode: false,
+            extreme_bg_color: Color32::WHITE,
+            selection: Selection {
+                bg_fill: *L_BG_5,
+                stroke: Stroke::new(0.7, *D_BG_0),
+            },
+            popup_shadow: Shadow::small_light(),
+            widgets,
+            ..Default::default()
+        }
+    }
+
+    pub fn dark_visuals() -> Visuals {
+        let mut widgets = Widgets::dark();
+        widgets.noninteractive.bg_fill = *D_BG_0_TRANSPARENT;
+        widgets.inactive.bg_fill = *D_BG_1_TRANSPARENT;
+        widgets.hovered.bg_fill = *D_BG_2_TRANSPARENT;
+        widgets.active.bg_fill = *D_BG_3_TRANSPARENT;
+
+        Visuals {
+            dark_mode: true,
+            extreme_bg_color: Color32::BLACK,
+            selection: Selection {
+                bg_fill: *D_BG_3_TRANSPARENT,
+                stroke: Stroke::new(0.7, *D_FG_0),
+            },
+            popup_shadow: Shadow::small_dark(),
+            widgets,
+            ..Default::default()
+        }
+    }
+}
+
 const PACKAGE_ICON: &str = "\u{1F4E6}";
 const SCROLL_ICON: &str = "\u{1F4DC}";
 const INFO_ICON: &str = "\u{2139}";
@@ -155,6 +238,11 @@ impl epi::App for App {
 
 impl App {
     pub fn display(&mut self, ctx: &egui::CtxRef) {
+        if ctx.style().visuals.dark_mode {
+            ctx.set_visuals(colors::dark_visuals());
+        } else {
+            ctx.set_visuals(colors::light_visuals());
+        }
         self.current_window = ctx.available_rect();
         self.handle_data_update();
         self.read_worker_events();
@@ -170,20 +258,35 @@ impl App {
     }
 
     fn top_panel(&mut self, ctx: &egui::CtxRef) {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            let tabs = [Tab::Containers, Tab::Images];
+        let frame = egui::Frame {
+            fill: if ctx.style().visuals.dark_mode {
+                *colors::D_BG_00
+            } else {
+                *colors::L_BG_0
+            },
+            margin: egui::vec2(5., 5.),
+            ..Default::default()
+        };
+        egui::TopBottomPanel::top("top_panel")
+            .frame(frame)
+            .show(ctx, |ui| {
+                let tabs = [Tab::Containers, Tab::Images];
 
-            egui::Grid::new("tab_grid").show(ui, |ui| {
-                for tab in tabs {
-                    ui.selectable_value(&mut self.current_tab, tab, tab.as_ref());
-                }
+                ui.horizontal(|ui| {
+                    egui::Grid::new("tab_grid").show(ui, |ui| {
+                        for tab in tabs {
+                            ui.selectable_value(&mut self.current_tab, tab, tab.as_ref());
+                        }
+                    });
+                    ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                        egui::global_dark_light_mode_switch(ui);
+
+                        if ui.button(SETTINGS_ICON).clicked() {
+                            self.settings_window.toggle();
+                        }
+                    });
+                });
             });
-            ui.with_layout(egui::Layout::right_to_left(), |ui| {
-                if ui.button(SETTINGS_ICON).clicked() {
-                    self.settings_window.toggle();
-                }
-            });
-        });
     }
 
     #[inline]
@@ -197,7 +300,17 @@ impl App {
     }
 
     fn side_panel(&mut self, ctx: &egui::CtxRef) {
+        let frame = egui::Frame {
+            fill: if ctx.style().visuals.dark_mode {
+                *colors::D_BG_00
+            } else {
+                *colors::L_BG_0
+            },
+            margin: egui::vec2(5., 5.),
+            ..Default::default()
+        };
         egui::SidePanel::left("side_panel")
+            .frame(frame)
             .min_width(100.)
             .max_width(250.)
             .max_width(self.side_panel_size())

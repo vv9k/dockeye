@@ -1,9 +1,11 @@
 use crate::app::{
-    key, key_val, val, App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON, PLAY_ICON, STOP_ICON,
+    colors, key, key_val, val, App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON, PLAY_ICON,
+    STOP_ICON,
 };
 use crate::event::EventRequest;
 
 use docker_api::api::{ContainerDetails, ContainerStatus};
+use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
 
@@ -112,7 +114,10 @@ impl App {
                         } else {
                             egui::Color32::RED
                         };
-                        let dot = egui::Label::new(PACKAGE_ICON).text_color(color).heading();
+                        let dot = egui::Label::new(PACKAGE_ICON)
+                            .text_color(color)
+                            .heading()
+                            .strong();
                         ui.scope(|ui| {
                             egui::Grid::new(&container.id)
                                 .min_col_width(100.)
@@ -177,16 +182,21 @@ impl App {
                 egui::Color32::RED
             };
             ui.horizontal(|ui| {
-                ui.add(egui::Label::new(PACKAGE_ICON).text_color(color).heading());
+                ui.add(
+                    egui::Label::new(PACKAGE_ICON)
+                        .text_color(color)
+                        .heading()
+                        .strong(),
+                );
                 ui.add(
                     Label::new(container.name.trim_start_matches('/'))
                         .heading()
                         .wrap(true)
                         .strong(),
                 );
+                self.container_buttons(ui, container, &mut errors);
             });
             ui.add_space(25.);
-            self.container_buttons(ui, container, &mut errors);
             self.container_info(ui, container);
             self.container_stats(ui);
             self.container_logs(ui);
@@ -523,38 +533,49 @@ impl App {
                             }
                         }
                     });
-                    ui.add(
-                        Plot::new("CPU usage")
-                            .data_aspect(1.5)
-                            .height(self.graph_height())
-                            .include_x(0.)
-                            .include_y(0.)
-                            .legend(egui::widgets::plot::Legend {
-                                position: egui::widgets::plot::Corner::RightTop,
-                                ..Default::default()
-                            })
-                            .line(
-                                Line::new(cpu_data)
-                                    .name("CPU usage %")
-                                    .color(egui::Color32::YELLOW),
-                            ),
-                    );
-                    ui.add(
-                        Plot::new("Memory usage")
-                            .data_aspect(1.5)
-                            .height(self.graph_height())
-                            .include_x(0.)
-                            .include_y(0.)
-                            .legend(egui::widgets::plot::Legend {
-                                position: egui::widgets::plot::Corner::RightTop,
-                                ..Default::default()
-                            })
-                            .line(
-                                Line::new(mem_data)
-                                    .name("Memory usage %")
-                                    .color(egui::Color32::BLUE),
-                            ),
-                    );
+                    let color = if ui.visuals().dark_mode {
+                        *colors::D_BG_000
+                    } else {
+                        *colors::L_BG_4
+                    };
+                    Frame::none().fill(color).show(ui, |ui| {
+                        ui.add(
+                            Plot::new("CPU usage")
+                                .data_aspect(1.5)
+                                .show_background(false)
+                                .height(self.graph_height())
+                                .include_x(0.)
+                                .include_y(0.)
+                                .legend(egui::widgets::plot::Legend {
+                                    position: egui::widgets::plot::Corner::RightTop,
+                                    ..Default::default()
+                                })
+                                .line(
+                                    Line::new(cpu_data)
+                                        .name("CPU usage %")
+                                        .color(egui::Color32::YELLOW),
+                                ),
+                        );
+                    });
+                    Frame::none().fill(color).show(ui, |ui| {
+                        ui.add(
+                            Plot::new("Memory usage")
+                                .data_aspect(1.5)
+                                .show_background(false)
+                                .height(self.graph_height())
+                                .include_x(0.)
+                                .include_y(0.)
+                                .legend(egui::widgets::plot::Legend {
+                                    position: egui::widgets::plot::Corner::RightTop,
+                                    ..Default::default()
+                                })
+                                .line(
+                                    Line::new(mem_data)
+                                        .name("Memory usage %")
+                                        .color(egui::Color32::BLUE),
+                                ),
+                        );
+                    });
                 });
         }
     }
@@ -564,41 +585,18 @@ impl App {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
                 .show(ui, |ui| {
-                    //let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
-                    //let mut layout_job: egui::text::LayoutJob = my_memoized_highlighter(string);
-                    //layout_job.wrap_width = wrap_width;
-                    //ui.fonts().layout_job(layout_job)
-                    //};
-
-                    ui.add(egui::TextEdit::multiline(&mut logs.as_str()).code_editor());
-                    //for (i, line) in lines.enumerate().map(|(i, line)| (i + 1, line)) {
-                    //ui.horizontal(|ui| {
-                    //let i_count = crate::checked_log_10(i).unwrap_or(1) + 1;
-                    //ui.add(
-                    //Label::new(format!(
-                    //"{}{}|",
-                    //" ".repeat((max_count - i_count) as usize),
-                    //i + self.logs_page * MAX_LINES
-                    //))
-                    //.code()
-                    //.strong(),
-                    //);
-                    //ui.add(Label::new(line).monospace());
-                    //});
-                    //}
-
-                    //ui.add_space(10.);
-                    //ui.label(format!("Page: {} / {}", self.logs_page + 1, total_pages));
-
-                    //ui.horizontal(|ui| {
-                    //if ui.button("previous page").clicked() && self.logs_page > 0 {
-                    //self.logs_page -= 1;
-                    //}
-
-                    //if ui.button("next page").clicked() && (self.logs_page + 1) < total_pages {
-                    //self.logs_page += 1;
-                    //}
-                    //});
+                    let color = if ui.visuals().dark_mode {
+                        *colors::D_BG_000
+                    } else {
+                        *colors::L_BG_4
+                    };
+                    Frame::none().fill(color).show(ui, |ui| {
+                        ui.add(
+                            egui::TextEdit::multiline(&mut logs.as_str())
+                                .code_editor()
+                                .desired_width(f32::INFINITY),
+                        );
+                    });
                 });
         }
     }

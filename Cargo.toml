@@ -18,5 +18,6 @@ bytes = "1"
 strip-ansi-escapes = "0.1.1"
 clipboard = "0.5"
 http = "0.2"
+lazy_static = "1"
 
 parking_lot_core = "=0.8.0" # fix WASM build

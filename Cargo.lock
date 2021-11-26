@@ -613,6 +613,7 @@ dependencies = [
  "epi",
  "futures",
  "http",
+ "lazy_static",
  "log",
  "parking_lot_core",
  "pretty_env_logger",
