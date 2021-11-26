@@ -43,4 +43,5 @@ pub enum EventResponse {
     UnpauseContainer(docker_api::Result<()>),
     PauseContainer(docker_api::Result<()>),
     StartContainer(docker_api::Result<()>),
+    InspectContainerNotFound,
 }

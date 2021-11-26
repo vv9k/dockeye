@@ -612,6 +612,7 @@ dependencies = [
  "epaint",
  "epi",
  "futures",
+ "http",
  "log",
  "parking_lot_core",
  "pretty_env_logger",

@@ -176,7 +176,14 @@ impl StatsWorker {
                                 self.prev_cpu = _cpu;
                                 self.prev_sys = _sys;
                             }
-                            Err(e) => error!("failed to check container stats: {}", e),
+                            Err(e) => {
+                                match e {
+                                    docker_api::Error::Fault {
+                                        code: http::status::StatusCode::NOT_FOUND, message: _
+                                    } => break,
+                                    e => error!("failed to check container stats: {}", e),
+                                }
+                            },
                         },
                         None => {
                             log::trace!("no container stats available");

@@ -316,6 +316,10 @@ impl App {
                 EventResponse::ListContainers(containers) => self.containers = containers,
                 EventResponse::ListImages(images) => self.images = images,
                 EventResponse::ContainerDetails(container) => self.set_container(container),
+                EventResponse::InspectContainerNotFound => {
+                    self.add_error("container not found");
+                    self.clear_container()
+                }
                 EventResponse::InspectImage(image) => self.current_image = Some(image),
                 EventResponse::DeleteContainer(msg) => self.add_notification(msg),
                 EventResponse::DeleteImage(status) => {
@@ -384,6 +388,13 @@ impl App {
         }
     }
 
+    fn clear_container(&mut self) {
+        self.current_container = None;
+        self.current_stats = None;
+        self.current_logs = None;
+        self.logs_page = 0;
+    }
+
     fn set_container(&mut self, container: Box<ContainerDetails>) {
         let changed = self
             .current_container
@@ -392,9 +403,7 @@ impl App {
             .unwrap_or(true);
 
         if changed {
-            self.current_stats = None;
-            self.current_logs = None;
-            self.logs_page = 0;
+            self.clear_container();
             if let Err(e) = self.send_event(EventRequest::ContainerTraceStart {
                 id: container.id.clone(),
             }) {

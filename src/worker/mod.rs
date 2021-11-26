@@ -119,10 +119,16 @@ impl DockerWorker {
                                     Ok(container) => {
                                         EventResponse::ContainerDetails(Box::new(container))
                                     }
-                                    Err(e) => {
-                                        error!("failed to inspect a container: {}", e);
-                                        continue;
-                                    }
+                                    Err(e) => match e {
+                                        docker_api::Error::Fault {
+                                            code: http::status::StatusCode::NOT_FOUND,
+                                            message: _,
+                                        } => EventResponse::InspectContainerNotFound,
+                                        e => {
+                                            error!("failed to inspect container: {}", e);
+                                            continue;
+                                        }
+                                    },
                                 }
                             } else {
                                 error!("failed to inspect a container: no current id set");

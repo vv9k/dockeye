@@ -69,7 +69,12 @@ impl LogsWorker {
                                 self.logs.0.push(chunk);
                             }
                             Err(e) => {
-                                error!("reading chunk failed: {}", e);
+                                match e {
+                                    docker_api::Error::Fault {
+                                        code: http::status::StatusCode::NOT_FOUND, message: _
+                                    } => break,
+                                    e => error!("failed to read container logs: {}", e),
+                                }
                             }
                         }
                     } else {
