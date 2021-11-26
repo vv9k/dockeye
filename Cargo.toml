@@ -10,7 +10,7 @@ epi = "0.15"
 epaint = "0.15"
 docker-api = { git = "https://github.com/vv9k/docker-api-rs" }
 anyhow = "1"
-tokio = { version = "1", features = ["rt", "macros", "time"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "fs", "io-util"] }
 log = "0.4"
 pretty_env_logger = "0.4"
 futures = "0.3"
@@ -19,5 +19,6 @@ strip-ansi-escapes = "0.1.1"
 clipboard = "0.5"
 http = "0.2"
 lazy_static = "1"
+native-dialog = "0.5.5"
 
 parking_lot_core = "=0.8.0" # fix WASM build

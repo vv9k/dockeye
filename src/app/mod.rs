@@ -101,6 +101,7 @@ const PLAY_ICON: &str = "\u{25B6}";
 const PAUSE_ICON: &str = "\u{23F8}";
 const STOP_ICON: &str = "\u{23F9}";
 const SETTINGS_ICON: &str = "\u{2699}";
+const SAVE_ICON: &str = "\u{1F4BE}";
 
 macro_rules! key {
     ($ui:ident, $k:expr) => {
@@ -472,7 +473,8 @@ impl App {
                 EventResponse::StartContainer(res)
                 | EventResponse::StopContainer(res)
                 | EventResponse::PauseContainer(res)
-                | EventResponse::UnpauseContainer(res) => {
+                | EventResponse::UnpauseContainer(res)
+                | EventResponse::SaveImage(res) => {
                     if let Err(e) = res {
                         self.add_notification(e);
                     }

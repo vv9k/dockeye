@@ -16,17 +16,37 @@ pub struct ImageInspectInfo {
 pub enum EventRequest {
     ListContainers(Option<ContainerListOpts>),
     ListImages(Option<ImageListOpts>),
-    InspectImage { id: String },
-    DeleteContainer { id: String },
-    DeleteImage { id: String },
+    InspectImage {
+        id: String,
+    },
+    DeleteContainer {
+        id: String,
+    },
+    DeleteImage {
+        id: String,
+    },
     ContainerStats,
     ContainerLogs,
     ContainerDetails,
-    StopContainer { id: String },
-    UnpauseContainer { id: String },
-    PauseContainer { id: String },
-    StartContainer { id: String },
-    ContainerTraceStart { id: String },
+    StopContainer {
+        id: String,
+    },
+    UnpauseContainer {
+        id: String,
+    },
+    PauseContainer {
+        id: String,
+    },
+    StartContainer {
+        id: String,
+    },
+    ContainerTraceStart {
+        id: String,
+    },
+    SaveImage {
+        id: String,
+        output_path: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -39,9 +59,10 @@ pub enum EventResponse {
     ContainerDetails(Box<ContainerDetails>),
     DeleteContainer(String),
     DeleteImage(DeleteStatus),
-    StopContainer(docker_api::Result<()>),
-    UnpauseContainer(docker_api::Result<()>),
-    PauseContainer(docker_api::Result<()>),
-    StartContainer(docker_api::Result<()>),
+    StopContainer(anyhow::Result<()>),
+    UnpauseContainer(anyhow::Result<()>),
+    PauseContainer(anyhow::Result<()>),
+    StartContainer(anyhow::Result<()>),
     InspectContainerNotFound,
+    SaveImage(anyhow::Result<()>),
 }

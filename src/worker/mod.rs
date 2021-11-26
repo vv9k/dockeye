@@ -1,11 +1,13 @@
+mod image_export;
 mod logs;
 mod stats;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
+pub use image_export::{ImageExportEvent, ImageExportWorker};
 pub use logs::{LogWorkerEvent, Logs, LogsWorker};
 pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use docker_api::Docker;
 use log::{debug, error, trace};
 use std::time::Duration;
@@ -51,8 +53,18 @@ impl DockerWorker {
             let mut current_id = None;
             let (_, mut tx_stats_event, mut rx_stats) = StatsWorker::new("");
             let (_, mut tx_logs_event, mut rx_logs) = LogsWorker::new("");
+            let (_, mut _tx_image_export_event, mut rx_image_export_results) =
+                ImageExportWorker::new("".to_string(), std::path::PathBuf::new());
+            let mut image_export_in_progress = false;
 
             loop {
+                if image_export_in_progress {
+                    if let Ok(res) = rx_image_export_results.try_recv() {
+                        let rsp = EventResponse::SaveImage(res);
+                        let _ = tx_rsp.send(rsp).await;
+                        image_export_in_progress = false;
+                    }
+                }
                 if let Some(req) = inner_rx_req.recv().await {
                     let event_str = format!("{:?}", req);
                     debug!("got request: {}", event_str);
@@ -217,21 +229,48 @@ impl DockerWorker {
                                 continue;
                             }
                         }
-                        EventRequest::PauseContainer { id } => {
-                            EventResponse::PauseContainer(docker.containers().get(id).pause().await)
-                        }
+                        EventRequest::PauseContainer { id } => EventResponse::PauseContainer(
+                            docker
+                                .containers()
+                                .get(id)
+                                .pause()
+                                .await
+                                .context("pausing container"),
+                        ),
                         EventRequest::UnpauseContainer { id } => EventResponse::UnpauseContainer(
-                            docker.containers().get(id).unpause().await,
+                            docker
+                                .containers()
+                                .get(id)
+                                .unpause()
+                                .await
+                                .context("unpausing container"),
                         ),
                         EventRequest::StopContainer { id } => EventResponse::StopContainer(
                             docker
                                 .containers()
                                 .get(id)
                                 .stop(Some(Duration::from_millis(0)))
-                                .await,
+                                .await
+                                .context("stopping container"),
                         ),
-                        EventRequest::StartContainer { id } => {
-                            EventResponse::StartContainer(docker.containers().get(id).start().await)
+                        EventRequest::StartContainer { id } => EventResponse::StartContainer(
+                            docker
+                                .containers()
+                                .get(id)
+                                .start()
+                                .await
+                                .context("starting container"),
+                        ),
+                        EventRequest::SaveImage { id, output_path } => {
+                            let d = docker.clone();
+                            let i = ImageExportWorker::new(id, output_path);
+                            _tx_image_export_event = i.1;
+                            rx_image_export_results = i.2;
+                            tokio::task::spawn(async move {
+                                i.0.work(d).await;
+                            });
+                            image_export_in_progress = true;
+                            continue;
                         }
                     };
                     debug!("sending response to event: {}", event_str);

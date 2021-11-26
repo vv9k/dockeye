@@ -1,10 +1,15 @@
-use crate::app::{key, key_val, val, App, DELETE_ICON, INFO_ICON, SCROLL_ICON};
+use crate::app::{key, key_val, val, App, DELETE_ICON, INFO_ICON, SAVE_ICON, SCROLL_ICON};
 use crate::event::EventRequest;
 
+use anyhow::Error;
 use egui::{Grid, Label};
 
+fn trim_id(id: &str) -> &str {
+    &id.trim_start_matches("sha256:")[..12]
+}
+
 fn name(id: &str, tags: Option<&Vec<String>>) -> String {
-    let id = &id.trim_start_matches("sha256:")[..12];
+    let id = trim_id(id);
     if let Some(tag) = tags.and_then(|v| v.first()) {
         if tag.contains("<none>") {
             id.to_string()
@@ -28,13 +33,10 @@ impl App {
                         egui::Grid::new(&image.id)
                             .max_col_width(self.side_panel_size())
                             .show(ui, |ui| {
+                                let image_name = name(&image.id, image.repo_tags.as_ref());
                                 ui.scope(|ui| {
                                     ui.heading(SCROLL_ICON);
-                                    ui.add(
-                                        Label::new(name(&image.id, image.repo_tags.as_ref()))
-                                            .strong()
-                                            .wrap(true),
-                                    );
+                                    ui.add(Label::new(&image_name).strong().wrap(true));
                                 });
                                 ui.end_row();
 
@@ -45,7 +47,13 @@ impl App {
                                 ui.end_row();
 
                                 ui.scope(|ui| {
-                                    if ui.button(INFO_ICON).clicked() {
+                                    if ui
+                                        .button(INFO_ICON)
+                                        .on_hover_text(
+                                            "display detailed information about the image",
+                                        )
+                                        .clicked()
+                                    {
                                         if let Err(e) =
                                             self.send_event(EventRequest::InspectImage {
                                                 id: image.id.clone(),
@@ -54,12 +62,47 @@ impl App {
                                             errors.push(e);
                                         };
                                     }
-                                    if ui.button(DELETE_ICON).clicked() {
+                                    if ui
+                                        .button(DELETE_ICON)
+                                        .on_hover_text("delete the image")
+                                        .clicked()
+                                    {
                                         if let Err(e) = self.send_event(EventRequest::DeleteImage {
                                             id: image.id.clone(),
                                         }) {
                                             errors.push(e);
                                         };
+                                    }
+                                    if ui
+                                        .button(SAVE_ICON)
+                                        .on_hover_text(
+                                            "save the image to filesystem as tar archive",
+                                        )
+                                        .clicked()
+                                    {
+                                        let tar_name = format!("image_{}", trim_id(&image.id));
+                                        log::warn!("{}", tar_name);
+                                        match native_dialog::FileDialog::new()
+                                            .add_filter("tar archive", &["tar"])
+                                            .set_filename(&tar_name[..])
+                                            .show_save_single_file()
+                                        {
+                                            Ok(Some(output_path)) => {
+                                                if let Err(e) =
+                                                    self.send_event(EventRequest::SaveImage {
+                                                        id: image.id.clone(),
+                                                        output_path,
+                                                    })
+                                                {
+                                                    errors.push(e);
+                                                };
+                                            }
+                                            Ok(None) => {}
+                                            Err(e) => errors.push(Error::msg(format!(
+                                                "failed to spawn a file dialog - {}",
+                                                e,
+                                            ))),
+                                        }
                                     }
                                 });
                             });
