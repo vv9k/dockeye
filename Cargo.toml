@@ -2,6 +2,8 @@
 name = "dockeye"
 version = "0.1.0"
 edition = "2021"
+authors = ["Wojciech Kępka <wojciech@wkepka.dev>"]
+license = "GPLv3"
 
 [dependencies]
 eframe = { version = "0.15", features = ["persistence"] }
