@@ -6,12 +6,17 @@
 
 # Instalation
 
+Install required libraries (only required on Linux):
+```shell
+$ apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+```
+
 To install **dockeye** you'll need the latest rust with cargo. To build run:
 ```shell
 $ cargo build --release
 ```
-
 and later copy `./target/release/dockeye` to your `$PATH`.
+
 
 ![usage](https://github.com/vv9k/dockeye/blob/master/usage.webp)
 
