@@ -2,8 +2,10 @@ use anyhow::Error;
 use docker_api::Docker;
 use futures::StreamExt;
 use log::error;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
 #[derive(Debug, PartialEq)]
 pub enum ImageExportEvent {
@@ -13,21 +15,21 @@ pub enum ImageExportEvent {
 #[derive(Debug)]
 pub struct ImageExportWorker {
     pub image_id: String,
-    pub output_path: std::path::PathBuf,
+    pub output_path: PathBuf,
     pub rx_events: mpsc::Receiver<ImageExportEvent>,
-    pub tx_results: mpsc::Sender<anyhow::Result<()>>,
+    pub tx_results: mpsc::Sender<anyhow::Result<(String, PathBuf)>>,
 }
 
 impl ImageExportWorker {
     pub fn new(
         image_id: String,
-        output_path: std::path::PathBuf,
+        output_path: PathBuf,
     ) -> (
         Self,
         mpsc::Sender<ImageExportEvent>,
-        mpsc::Receiver<anyhow::Result<()>>,
+        mpsc::Receiver<anyhow::Result<(String, PathBuf)>>,
     ) {
-        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<()>>(128);
+        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<(String, PathBuf)>>(128);
         let (tx_events, rx_events) = mpsc::channel::<ImageExportEvent>(128);
 
         (
@@ -42,13 +44,14 @@ impl ImageExportWorker {
         )
     }
     pub async fn work(mut self, docker: Docker) {
+        log::trace!("starting image `{}` export", self.image_id);
         let image = docker.images().get(&self.image_id);
         let mut export_stream = image.export();
         let mut export_file = match OpenOptions::new()
-            .write(true)
+            .append(true)
             .create(true)
             .open(&self.output_path)
-            .await
+            //.await
         {
             Ok(f) => f,
             Err(e) => {
@@ -68,8 +71,8 @@ impl ImageExportWorker {
                     if let Some(data) = bytes {
                         match data {
                             Ok(chunk) => {
-                                log::trace!("saving export image chunk");
-                                if let Err(e) = export_file.write(&chunk).await {
+                                log::trace!("saving image export chunk");
+                                if let Err(e) = export_file.write(&chunk) {
                                     error!("{}", e);
                                     break;
                                 }
@@ -79,19 +82,26 @@ impl ImageExportWorker {
                                     docker_api::Error::Fault {
                                         code: http::status::StatusCode::NOT_FOUND, message: _
                                     } => break,
-                                    e => error!("failed to read container logs: {}", e),
+                                    e => error!("failed to read image export chunk: {}", e),
                                 }
                             }
                         }
                     } else {
-                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        log::trace!(
+                                "image `{}` export finished successfuly",
+                                self.image_id
+                        );
+                        let Self { image_id, tx_results, output_path, .. }  = self;
+                        let _ = tx_results
+                            .send(Ok((image_id, output_path)))
+                            .await;
+                        return;
                     }
                 }
                 event = self.rx_events.recv() => {
                     match event {
                         Some(ImageExportEvent::Kill) => break,
                         None => continue,
-
                     }
                 }
             }

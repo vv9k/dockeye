@@ -208,7 +208,7 @@ impl App {
         &self,
         ui: &mut egui::Ui,
         container: &ContainerDetails,
-        errors: &mut Vec<Box<dyn std::fmt::Display>>,
+        errors: &mut Vec<Box<dyn std::fmt::Debug>>,
     ) {
         if is_running(container) {
             ui.horizontal(|ui| {

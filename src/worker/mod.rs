@@ -176,31 +176,23 @@ impl DockerWorker {
                                 history,
                             }))
                         }
-                        EventRequest::DeleteContainer { id } => {
-                            match docker.containers().get(&id).delete().await {
-                                Ok(msg) => {
-                                    let msg = if msg.is_empty() {
-                                        format!("successfully deleted container {}", id)
-                                    } else {
-                                        msg
-                                    };
-                                    EventResponse::DeleteContainer(msg)
-                                }
-                                Err(e) => {
-                                    error!("failed to delete a container: {}", e);
-                                    continue;
-                                }
-                            }
-                        }
-                        EventRequest::DeleteImage { id } => {
-                            match docker.images().get(&id).delete().await {
-                                Ok(status) => EventResponse::DeleteImage(status),
-                                Err(e) => {
-                                    error!("failed to delete a image: {}", e);
-                                    continue;
-                                }
-                            }
-                        }
+                        EventRequest::DeleteContainer { id } => EventResponse::DeleteContainer(
+                            docker
+                                .containers()
+                                .get(&id)
+                                .delete()
+                                .await
+                                .map(|_| id)
+                                .context("deleting container"),
+                        ),
+                        EventRequest::DeleteImage { id } => EventResponse::DeleteImage(
+                            docker
+                                .images()
+                                .get(&id)
+                                .delete()
+                                .await
+                                .context("deleting image"),
+                        ),
                         EventRequest::ContainerStats => {
                             if let Err(e) = tx_stats_event.send(StatsWorkerEvent::PollData).await {
                                 error!("failed to collect stats data: {}", e);

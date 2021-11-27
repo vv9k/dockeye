@@ -164,11 +164,13 @@ impl App {
                 key_val!(ui, "Docker version:", &details.docker_version);
 
                 key!(ui, "Digests:");
+
                 if !details.repo_digests.is_empty() {
                     egui::CollapsingHeader::new("")
                         .id_source("digests_header")
                         .default_open(false)
                         .show(ui, |ui| {
+                            ui.allocate_space((f32::INFINITY, 0.).into());
                             Grid::new("digests_grid").show(ui, |ui| {
                                 for digest in &details.repo_digests {
                                     val!(ui, digest);

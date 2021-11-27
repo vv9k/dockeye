@@ -196,13 +196,12 @@ pub struct App {
     rx_rsp: mpsc::Receiver<EventResponse>,
 
     update_time: SystemTime,
-    notifications_time: SystemTime,
     current_window: egui::Rect,
-    errors: VecDeque<String>,
+    errors: VecDeque<(SystemTime, String)>,
 
     current_tab: Tab,
 
-    notifications: VecDeque<String>,
+    notifications: VecDeque<(SystemTime, String)>,
 
     containers: Vec<ContainerInfo>,
     current_container: Option<Box<ContainerDetails>>,
@@ -328,7 +327,7 @@ impl App {
 
     fn central_panel(&mut self, ctx: &egui::CtxRef) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.display_notifications(ctx);
+            self.display_notifications_and_errors(ctx);
             match self.current_tab {
                 Tab::Containers => {
                     egui::ScrollArea::vertical().show(ui, |ui| self.container_details(ui));
@@ -340,9 +339,9 @@ impl App {
         });
     }
 
-    fn display_notifications(&self, ctx: &egui::CtxRef) {
+    fn display_notifications_and_errors(&mut self, ctx: &egui::CtxRef) {
         let mut offset = 0.;
-        for notification in &self.notifications {
+        for (_, notification) in &self.notifications {
             if let Some(response) = egui::Window::new("Notification")
                 .id(egui::Id::new(offset as u32))
                 .anchor(egui::Align2::RIGHT_TOP, (0., offset))
@@ -350,6 +349,19 @@ impl App {
                 .resizable(false)
                 .show(ctx, |ui| {
                     ui.label(&notification);
+                })
+            {
+                offset += response.response.rect.height();
+            }
+        }
+        for (_, error) in &self.errors {
+            if let Some(response) = egui::Window::new("Error")
+                .id(egui::Id::new(offset as u32))
+                .anchor(egui::Align2::RIGHT_TOP, (0., offset))
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.colored_label(egui::Color32::RED, error);
                 })
             {
                 offset += response.response.rect.height();
@@ -365,7 +377,6 @@ impl App {
             rx_rsp,
 
             update_time: SystemTime::now(),
-            notifications_time: SystemTime::now(),
 
             current_tab: Tab::default(),
             current_window: egui::Rect::EVERYTHING,
@@ -396,11 +407,13 @@ impl App {
     }
 
     fn add_notification(&mut self, notification: impl std::fmt::Display) {
-        self.notifications.push_back(format!("{}", notification));
+        self.notifications
+            .push_back((SystemTime::now(), format!("{}", notification)));
     }
 
-    fn add_error(&mut self, error: impl std::fmt::Display) {
-        self.errors.push_back(format!("{}", error));
+    fn add_error(&mut self, error: impl std::fmt::Debug) {
+        self.errors
+            .push_back((SystemTime::now(), format!("{:?}", error)));
     }
 
     fn send_update_request(&mut self) {
@@ -435,24 +448,32 @@ impl App {
                     self.clear_container()
                 }
                 EventResponse::InspectImage(image) => self.current_image = Some(image),
-                EventResponse::DeleteContainer(msg) => self.add_notification(msg),
-                EventResponse::DeleteImage(status) => {
-                    let status = status.into_iter().fold(String::new(), |mut acc, s| {
-                        match s {
-                            Status::Deleted(s) => {
-                                acc.push_str("Deleted: ");
-                                acc.push_str(&s)
+                EventResponse::DeleteContainer(res) => match res {
+                    Ok(id) => {
+                        self.add_notification(format!("successfully deleted container {}", id))
+                    }
+                    Err(e) => self.add_error(e),
+                },
+                EventResponse::DeleteImage(res) => match res {
+                    Ok(status) => {
+                        let status = status.into_iter().fold(String::new(), |mut acc, s| {
+                            match s {
+                                Status::Deleted(s) => {
+                                    acc.push_str("Deleted: ");
+                                    acc.push_str(&s)
+                                }
+                                Status::Untagged(s) => {
+                                    acc.push_str("Untagged: ");
+                                    acc.push_str(&s)
+                                }
                             }
-                            Status::Untagged(s) => {
-                                acc.push_str("Untagged: ");
-                                acc.push_str(&s)
-                            }
-                        }
-                        acc.push('\n');
-                        acc
-                    });
-                    self.add_notification(status)
-                }
+                            acc.push('\n');
+                            acc
+                        });
+                        self.add_notification(status)
+                    }
+                    Err(e) => self.add_error(e),
+                },
                 EventResponse::ContainerStats(new_stats) => {
                     if let Some(stats) = &mut self.current_stats {
                         stats.extend(*new_stats);
@@ -473,27 +494,49 @@ impl App {
                 EventResponse::StartContainer(res)
                 | EventResponse::StopContainer(res)
                 | EventResponse::PauseContainer(res)
-                | EventResponse::UnpauseContainer(res)
-                | EventResponse::SaveImage(res) => {
+                | EventResponse::UnpauseContainer(res) => {
                     if let Err(e) = res {
-                        self.add_notification(e);
+                        self.add_error(e);
                     }
                 }
+                EventResponse::SaveImage(res) => match res {
+                    Ok((id, path)) => self.add_notification(format!(
+                        "successfully exported image {} to tar archive in `{}`",
+                        id,
+                        path.display()
+                    )),
+                    Err(e) => self.add_error(e),
+                },
             }
         }
     }
 
     fn handle_notifications(&mut self) {
-        if self
-            .notifications_time
-            .elapsed()
-            .unwrap_or_default()
-            .as_millis()
-            >= 5000
-        {
-            self.notifications.pop_front();
-            self.errors.pop_front();
-            self.notifications_time = SystemTime::now();
+        loop {
+            let should_pop = self
+                .notifications
+                .front()
+                .map(|(time, _)| time.elapsed().unwrap_or_default().as_millis() >= 5000)
+                .unwrap_or_default();
+
+            if should_pop {
+                self.notifications.pop_front();
+            } else {
+                break;
+            }
+        }
+        loop {
+            let should_pop = self
+                .errors
+                .front()
+                .map(|(time, _)| time.elapsed().unwrap_or_default().as_millis() >= 5000)
+                .unwrap_or_default();
+
+            if should_pop {
+                self.errors.pop_front();
+            } else {
+                break;
+            }
         }
     }
 
@@ -522,7 +565,7 @@ impl App {
             if let Err(e) = self.send_event(EventRequest::ContainerTraceStart {
                 id: container.id.clone(),
             }) {
-                self.add_notification(e);
+                self.add_error(e);
             }
         }
 
