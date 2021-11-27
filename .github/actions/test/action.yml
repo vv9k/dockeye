@@ -1,0 +1,17 @@
+name: 'Tests'
+description: 'Runs the test suite'
+inputs: {}
+outputs: {}
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - name: Run tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test

@@ -1,0 +1,63 @@
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - "*.md"
+      - "LICENSE"
+
+
+name: dockeye CI
+
+jobs:
+  check:
+    name: Check
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          #- windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/check
+
+  fmt:
+    name: Rustfmt
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          #- windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/fmt
+
+  clippy:
+    name: Clippy
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          #- windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/clippy
+
+  test:
+    name: Test Suite
+    needs: [check, fmt, clippy]
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          #- windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/test

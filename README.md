@@ -1,5 +1,7 @@
 # dockeye
 
+[![Build Status](https://github.com/vv9k/dockeye/workflows/dockeye%20CI/badge.svg)](https://github.com/vv9k/dockeye/actions?query=workflow%3A%22dockeye+CI%22)
+
 > GUI app for managing Docker
 
 # Instalation
