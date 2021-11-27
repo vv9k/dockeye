@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
+#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub enum ImageExportEvent {
     Kill,
@@ -51,7 +52,6 @@ impl ImageExportWorker {
             .append(true)
             .create(true)
             .open(&self.output_path)
-            //.await
         {
             Ok(f) => f,
             Err(e) => {

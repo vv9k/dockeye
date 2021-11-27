@@ -1,9 +1,11 @@
 mod image_export;
+mod image_pull;
 mod logs;
 mod stats;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
 pub use image_export::{ImageExportEvent, ImageExportWorker};
+pub use image_pull::{ImagePullEvent, ImagePullWorker};
 pub use logs::{LogWorkerEvent, Logs, LogsWorker};
 pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
@@ -55,7 +57,10 @@ impl DockerWorker {
             let (_, mut tx_logs_event, mut rx_logs) = LogsWorker::new("");
             let (_, mut _tx_image_export_event, mut rx_image_export_results) =
                 ImageExportWorker::new("".to_string(), std::path::PathBuf::new());
+            let (_, mut tx_pull_event, mut rx_chunks, mut rx_image_pull_results) =
+                ImagePullWorker::new("".to_string(), None);
             let mut image_export_in_progress = false;
+            let mut image_pull_in_progress = false;
 
             loop {
                 if image_export_in_progress {
@@ -63,6 +68,17 @@ impl DockerWorker {
                         let rsp = EventResponse::SaveImage(res);
                         let _ = tx_rsp.send(rsp).await;
                         image_export_in_progress = false;
+                    }
+                }
+                if image_pull_in_progress {
+                    if let Ok(res) = rx_image_pull_results.try_recv() {
+                        let rsp = EventResponse::PullImage(res);
+                        let _ = tx_rsp.send(rsp).await;
+                        if let Some(chunks) = rx_chunks.recv().await {
+                            let rsp = EventResponse::PullImageChunks(chunks);
+                            let _ = tx_rsp.send(rsp).await;
+                        }
+                        image_pull_in_progress = false;
                     }
                 }
                 if let Some(req) = inner_rx_req.recv().await {
@@ -263,6 +279,32 @@ impl DockerWorker {
                             });
                             image_export_in_progress = true;
                             continue;
+                        }
+                        EventRequest::PullImage { image, auth } => {
+                            if image_pull_in_progress {
+                                continue;
+                            }
+                            let d = docker.clone();
+                            let i = ImagePullWorker::new(image, auth);
+                            tx_pull_event = i.1;
+                            rx_chunks = i.2;
+                            rx_image_pull_results = i.3;
+                            tokio::task::spawn(async move {
+                                i.0.work(d).await;
+                            });
+                            image_pull_in_progress = true;
+                            continue;
+                        }
+                        EventRequest::PullImageChunks => {
+                            if !image_pull_in_progress {
+                                continue;
+                            }
+                            if let Err(e) = tx_pull_event.send(ImagePullEvent::PollData).await {
+                                error!("failed to collect image pull chunks: {}", e);
+                                continue;
+                            }
+                            let chunks = rx_chunks.recv().await.unwrap_or_default();
+                            EventResponse::PullImageChunks(chunks)
                         }
                     };
                     debug!("sending response to event: {}", event_str);

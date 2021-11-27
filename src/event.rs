@@ -2,7 +2,7 @@ use crate::worker::{Logs, RunningContainerStats};
 
 use docker_api::api::{
     ContainerDetails, ContainerInfo, ContainerListOpts, DeleteStatus, DistributionInspectInfo,
-    History, ImageDetails, ImageInfo, ImageListOpts,
+    History, ImageBuildChunk, ImageDetails, ImageInfo, ImageListOpts, RegistryAuth,
 };
 
 #[derive(Debug)]
@@ -47,6 +47,11 @@ pub enum EventRequest {
         id: String,
         output_path: std::path::PathBuf,
     },
+    PullImage {
+        image: String,
+        auth: Option<RegistryAuth>,
+    },
+    PullImageChunks,
 }
 
 #[derive(Debug)]
@@ -65,4 +70,6 @@ pub enum EventResponse {
     StartContainer(anyhow::Result<()>),
     InspectContainerNotFound,
     SaveImage(anyhow::Result<(String, std::path::PathBuf)>),
+    PullImage(anyhow::Result<String>),
+    PullImageChunks(Box<Vec<ImageBuildChunk>>),
 }

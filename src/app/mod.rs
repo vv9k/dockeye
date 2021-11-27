@@ -4,8 +4,11 @@ mod images;
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
 use crate::worker::RunningContainerStats;
 use anyhow::{Context, Result};
-use docker_api::api::{ContainerDetails, ContainerInfo, ContainerListOpts, ImageInfo, Status};
+use docker_api::api::{
+    ContainerDetails, ContainerInfo, ContainerListOpts, ImageBuildChunk, ImageInfo, Status,
+};
 use eframe::{egui, epi};
+use images::{ImagesView, PullView};
 use std::collections::VecDeque;
 use std::time::SystemTime;
 use tokio::sync::mpsc;
@@ -77,7 +80,7 @@ mod colors {
         widgets.noninteractive.bg_fill = *D_BG_0_TRANSPARENT;
         widgets.inactive.bg_fill = *D_BG_1_TRANSPARENT;
         widgets.hovered.bg_fill = *D_BG_2_TRANSPARENT;
-        widgets.active.bg_fill = *D_BG_3_TRANSPARENT;
+        widgets.active.bg_fill = *D_BG_0_TRANSPARENT;
 
         Visuals {
             dark_mode: true,
@@ -209,10 +212,13 @@ pub struct App {
     current_logs: Option<String>,
     images: Vec<ImageInfo>,
     current_image: Option<Box<ImageInspectInfo>>,
+    current_pull_chunks: Option<Box<Vec<ImageBuildChunk>>>,
+    current_image_view: ImagesView,
 
     logs_page: usize,
 
     settings_window: SettingsWindow,
+    pull_view: PullView,
 }
 
 impl epi::App for App {
@@ -320,7 +326,7 @@ impl App {
                     self.containers_scroll(ui);
                 }
                 Tab::Images => {
-                    self.image_scroll(ui);
+                    self.image_side(ui);
                 }
             });
     }
@@ -333,7 +339,7 @@ impl App {
                     egui::ScrollArea::vertical().show(ui, |ui| self.container_details(ui));
                 }
                 Tab::Images => {
-                    egui::ScrollArea::vertical().show(ui, |ui| self.image_details(ui));
+                    egui::ScrollArea::vertical().show(ui, |ui| self.image_view(ui));
                 }
             }
         });
@@ -390,9 +396,12 @@ impl App {
             current_logs: None,
             images: vec![],
             current_image: None,
+            current_pull_chunks: None,
             logs_page: 0,
+            current_image_view: ImagesView::None,
 
             settings_window: SettingsWindow::default(),
+            pull_view: PullView::default(),
         }
     }
 
@@ -421,6 +430,9 @@ impl App {
             ContainerListOpts::builder().all(true).build(),
         )));
         self.send_event_notify(EventRequest::ListImages(None));
+        if self.pull_view.in_progress {
+            self.send_event_notify(EventRequest::PullImageChunks);
+        }
         if self.current_container.is_some() {
             self.send_event_notify(EventRequest::ContainerDetails);
             self.send_event_notify(EventRequest::ContainerLogs);
@@ -507,6 +519,20 @@ impl App {
                     )),
                     Err(e) => self.add_error(e),
                 },
+                EventResponse::PullImage(res) => match res {
+                    Ok(id) => {
+                        self.pull_view.in_progress = false;
+                        self.add_notification(format!("successfully pulled image {}", id,))
+                    }
+                    Err(e) => self.add_error(e),
+                },
+                EventResponse::PullImageChunks(new_chunks) => {
+                    if let Some(chunks) = &mut self.current_pull_chunks {
+                        chunks.extend(*new_chunks);
+                    } else {
+                        self.current_pull_chunks = Some(new_chunks);
+                    }
+                }
             }
         }
     }
@@ -571,4 +597,24 @@ impl App {
 
         self.current_container = Some(container);
     }
+}
+
+fn line(ui: &mut egui::Ui, frame: egui::Frame) -> egui::Response {
+    frame
+        .show(ui, |ui| {
+            let available_space = ui.available_size_before_wrap();
+
+            let size = egui::vec2(available_space.x, 0.);
+
+            let (rect, response) = ui.allocate_at_least(size, egui::Sense::hover());
+            let points = [
+                egui::pos2(rect.left(), rect.top()),
+                egui::pos2(rect.right(), rect.top()),
+            ];
+
+            let stroke = ui.visuals().widgets.noninteractive.bg_stroke;
+            ui.painter().line_segment(points, stroke);
+            response
+        })
+        .response
 }

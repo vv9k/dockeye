@@ -1,6 +1,6 @@
 use crate::app::{
-    colors, key, key_val, val, App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON, PLAY_ICON,
-    STOP_ICON,
+    colors, key, key_val, line, val, App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON,
+    PLAY_ICON, STOP_ICON,
 };
 use crate::event::EventRequest;
 
@@ -118,7 +118,18 @@ impl App {
                             .text_color(color)
                             .heading()
                             .strong();
-                        ui.scope(|ui| {
+                        let frame_color = ui.visuals().widgets.active.bg_fill;
+                        let frame = if self
+                            .current_container
+                            .as_ref()
+                            .map(|c| c.id == container.id)
+                            .unwrap_or_default()
+                        {
+                            egui::Frame::none().fill(frame_color).margin((0., 0.))
+                        } else {
+                            egui::Frame::none().margin((0., 0.))
+                        };
+                        frame.show(ui, |ui| {
                             egui::Grid::new(&container.id)
                                 .min_col_width(100.)
                                 .max_col_width(self.side_panel_size())
@@ -159,11 +170,11 @@ impl App {
                                         }
                                     });
                                     ui.end_row();
+                                    line(ui, frame);
+                                    ui.end_row();
                                 });
+                            ui.allocate_space((ui.available_width(), 0.).into());
                         });
-                        ui.end_row();
-
-                        ui.separator();
                         ui.end_row();
                     }
                     errors.into_iter().for_each(|error| self.add_error(error));
