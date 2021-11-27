@@ -20,21 +20,22 @@ pub struct ImagePullWorker {
     pub auth: Option<RegistryAuth>,
     pub rx_events: mpsc::Receiver<ImagePullEvent>,
     pub tx_results: mpsc::Sender<anyhow::Result<String>>,
-    pub tx_chunks: mpsc::Sender<Box<Vec<ImageBuildChunk>>>,
+    pub tx_chunks: mpsc::Sender<Vec<ImageBuildChunk>>,
 }
 
 impl ImagePullWorker {
+    #[allow(clippy::type_complexity)] // TODO: temporarily
     pub fn new(
         image_id: String,
         auth: Option<RegistryAuth>,
     ) -> (
         Self,
         mpsc::Sender<ImagePullEvent>,
-        mpsc::Receiver<Box<Vec<ImageBuildChunk>>>,
+        mpsc::Receiver<Vec<ImageBuildChunk>>,
         mpsc::Receiver<anyhow::Result<String>>,
     ) {
         let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<String>>(128);
-        let (tx_chunks, rx_chunks) = mpsc::channel::<Box<Vec<ImageBuildChunk>>>(128);
+        let (tx_chunks, rx_chunks) = mpsc::channel::<Vec<ImageBuildChunk>>(128);
         let (tx_events, rx_events) = mpsc::channel::<ImagePullEvent>(128);
 
         (

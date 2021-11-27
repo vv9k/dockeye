@@ -22,6 +22,7 @@ pub struct ImageExportWorker {
 }
 
 impl ImageExportWorker {
+    #[allow(clippy::type_complexity)] // TODO: temporarily
     pub fn new(
         image_id: String,
         output_path: PathBuf,

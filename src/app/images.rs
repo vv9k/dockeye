@@ -71,15 +71,16 @@ impl App {
                     let mut errors = vec![];
                     let color = ui.visuals().widgets.active.bg_fill;
                     for image in &self.images {
-                        let frame = if self
+                        let selected = self
                             .current_image
                             .as_ref()
                             .map(|i| {
                                 i.details.id == image.id
                                     && self.current_image_view == ImagesView::Image
                             })
-                            .unwrap_or_default()
-                        {
+                            .unwrap_or_default();
+
+                        let frame = if selected {
                             egui::Frame::none().fill(color).margin((0., 0.))
                         } else {
                             egui::Frame::none().margin((0., 0.))
@@ -335,31 +336,29 @@ impl App {
             if ui.button("pull").clicked() {
                 if self.pull_view.in_progress {
                     self.add_notification("Image pull already in progress");
+                } else if self.pull_view.image.is_empty() {
+                    self.add_notification("Image name can't be empty");
                 } else {
-                    if self.pull_view.image.is_empty() {
-                        self.add_notification("Image name can't be empty");
-                    } else {
-                        let auth = if !self.pull_view.user.is_empty() {
-                            let mut auth = RegistryAuth::builder();
-                            if !self.pull_view.password.is_empty() {
-                                Some(
-                                    auth.username(&self.pull_view.user)
-                                        .password(&self.pull_view.password)
-                                        .build(),
-                                )
-                            } else {
-                                Some(auth.username(&self.pull_view.user).build())
-                            }
+                    let auth = if !self.pull_view.user.is_empty() {
+                        let mut auth = RegistryAuth::builder();
+                        if !self.pull_view.password.is_empty() {
+                            Some(
+                                auth.username(&self.pull_view.user)
+                                    .password(&self.pull_view.password)
+                                    .build(),
+                            )
                         } else {
-                            None
-                        };
-                        self.send_event_notify(EventRequest::PullImage {
-                            image: self.pull_view.image.clone(),
-                            auth,
-                        });
-                        self.pull_view.in_progress = true;
-                        self.current_pull_chunks = None;
-                    }
+                            Some(auth.username(&self.pull_view.user).build())
+                        }
+                    } else {
+                        None
+                    };
+                    self.send_event_notify(EventRequest::PullImage {
+                        image: self.pull_view.image.clone(),
+                        auth,
+                    });
+                    self.pull_view.in_progress = true;
+                    self.current_pull_chunks = None;
                 }
             }
         });
@@ -371,11 +370,11 @@ impl App {
                     match chunk {
                         ImageBuildChunk::Update { stream } => {
                             acc.push_str("Update: ");
-                            acc.push_str(&stream);
+                            acc.push_str(stream);
                         }
                         ImageBuildChunk::Error { error, .. } => {
                             acc.push_str("Error: ");
-                            acc.push_str(&error);
+                            acc.push_str(error);
                         }
                         ImageBuildChunk::Digest { aux } => {
                             acc.push_str("Digest: ");
@@ -388,7 +387,7 @@ impl App {
                             progress_detail,
                         } => {
                             acc.push_str("Status: ");
-                            acc.push_str(&status);
+                            acc.push_str(status);
                             if let Some(progress) = progress_detail {
                                 if let Some(current) = progress.current {
                                     if let Some(total) = progress.total {

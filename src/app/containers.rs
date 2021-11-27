@@ -380,7 +380,7 @@ impl App {
 
                             if let Some(net_stat) = &last.1.net_stat {
                                 let (rx, tx) =
-                                    net_stat.into_iter().fold((0, 0), |mut acc, (_, stats)| {
+                                    net_stat.iter().fold((0, 0), |mut acc, (_, stats)| {
                                         acc.0 += stats.rx_bytes;
                                         acc.1 += stats.tx_bytes;
                                         acc
@@ -397,7 +397,7 @@ impl App {
                                     .io_service_bytes_recursive
                                     .as_ref()
                                     .map(|stats| {
-                                        stats.into_iter().fold((0, 0), |mut acc, stat| {
+                                        stats.iter().fold((0, 0), |mut acc, stat| {
                                             match stat.op.chars().next() {
                                                 Some('r' | 'R') => acc.0 += stat.value,
                                                 Some('w' | 'W') => acc.1 += stat.value,

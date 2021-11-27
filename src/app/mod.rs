@@ -212,7 +212,7 @@ pub struct App {
     current_logs: Option<String>,
     images: Vec<ImageInfo>,
     current_image: Option<Box<ImageInspectInfo>>,
-    current_pull_chunks: Option<Box<Vec<ImageBuildChunk>>>,
+    current_pull_chunks: Option<Vec<ImageBuildChunk>>,
     current_image_view: ImagesView,
 
     logs_page: usize,
@@ -528,7 +528,7 @@ impl App {
                 },
                 EventResponse::PullImageChunks(new_chunks) => {
                     if let Some(chunks) = &mut self.current_pull_chunks {
-                        chunks.extend(*new_chunks);
+                        chunks.extend(new_chunks);
                     } else {
                         self.current_pull_chunks = Some(new_chunks);
                     }

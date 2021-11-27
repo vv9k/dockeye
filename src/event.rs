@@ -71,5 +71,5 @@ pub enum EventResponse {
     InspectContainerNotFound,
     SaveImage(anyhow::Result<(String, std::path::PathBuf)>),
     PullImage(anyhow::Result<String>),
-    PullImageChunks(Box<Vec<ImageBuildChunk>>),
+    PullImageChunks(Vec<ImageBuildChunk>),
 }
