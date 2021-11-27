@@ -414,6 +414,18 @@ impl App {
                                 );
                             }
 
+                            if let Some(pids_stat) = &last.1.pids_stat {
+                                key_val!(
+                                    ui,
+                                    "Processes:",
+                                    format!(
+                                        "{} / {}",
+                                        pids_stat.current.unwrap_or_default(),
+                                        pids_stat.limit.unwrap_or_default()
+                                    )
+                                );
+                            }
+
                             if let Some(mem_stat) = &last.1.mem_stat {
                                 ui.add(Label::new("Memory stats:").strong());
                                 egui::CollapsingHeader::new("")

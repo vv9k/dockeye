@@ -494,9 +494,9 @@ impl App {
                     }
                 }
                 EventResponse::ContainerLogs(logs) => {
-                    let bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
-                    let raw_bytes = strip_ansi_escapes::strip(&bytes).unwrap_or(bytes);
-                    let logs = String::from_utf8_lossy(&raw_bytes);
+                    let raw_bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
+                    let escaped_bytes = strip_ansi_escapes::strip(&raw_bytes).unwrap_or(raw_bytes);
+                    let logs = String::from_utf8_lossy(&escaped_bytes);
                     if let Some(current_logs) = &mut self.current_logs {
                         current_logs.push_str(&logs);
                     } else {
