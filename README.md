@@ -6,6 +6,9 @@
 
 # Instalation
 
+## Prebuilt packages
+Download one of the archives available on the [releases page](https://github.com/vv9k/dockeye/releases) and extract it somewhere in your `$PATH`
+
 ## AUR
 
 To install from AUR, use your favorite AUR helper like `paru`:
