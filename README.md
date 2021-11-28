@@ -6,6 +6,15 @@
 
 # Instalation
 
+## AUR
+
+To install from AUR, use your favorite AUR helper like `paru`:
+```shell
+$ paru -S dockeye
+```
+
+## Building from source
+
 Install required libraries (only required on Linux):
 
 ### APT
