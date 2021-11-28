@@ -307,10 +307,14 @@ impl App {
         while let Ok(event) = self.rx_rsp.try_recv() {
             //log::warn!("[gui] received event: {:?}", event);
             match event {
-                EventResponse::ListContainers(containers) => {
+                EventResponse::ListContainers(mut containers) => {
+                    containers.sort_by(|a, b| b.created.cmp(&a.created));
                     self.containers.containers = containers
                 }
-                EventResponse::ListImages(images) => self.images.images = images,
+                EventResponse::ListImages(mut images) => {
+                    images.sort_by(|a, b| b.created.cmp(&a.created));
+                    self.images.images = images
+                }
                 EventResponse::ContainerDetails(container) => self.set_container(container),
                 EventResponse::InspectContainerNotFound => {
                     self.add_error("container not found");
