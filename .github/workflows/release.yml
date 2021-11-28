@@ -1,0 +1,158 @@
+name: release
+
+on:
+  push:
+    branches:
+      - "!*"
+    tags:
+      - "**"
+jobs:
+  check:
+    name: Check
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/check
+
+  fmt:
+    name: Rustfmt
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/fmt
+
+  clippy:
+    name: Clippy
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/clippy
+
+  test:
+    name: Test Suite
+    needs: [check, fmt, clippy]
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: ./.github/actions/test
+
+  build_and_upload_artifacts:
+    name: Upload Artifacts
+    needs: [test]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, windows-msvc]
+        include:
+        - build: linux
+          os: ubuntu-latest
+          target: x86_64-unknown-linux
+        - build: windows-msvc
+          os: windows-latest
+          target: x86_64-pc-windows-msvc
+        - build: macos
+          os: macos-latest
+          target: aarch64-apple-darwin
+
+    steps:
+      - name: Set up Rust
+        uses: hecrj/setup-rust-action@v1
+      - uses: actions/checkout@master
+      - name: Set version
+        id: set_version
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: echo "::set-output name=DOCKEYE_VERSION::${GITHUB_REF#refs/tags/}"
+      - name: Set version
+        id: set_version_win
+        if: matrix.os == 'windows-latest'
+        run: echo "::set-output name=DOCKEYE_VERSION::$(git describe --tags --abbrev=0)"
+      - name: Set archive name
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        id: set_name
+        run: echo "::set-output name=DOCKEYE_ARCHIVE::dockeye-${{ steps.set_version.outputs.DOCKEYE_VERSION}}-${{ matrix.target}}"
+      - name: Set archive name
+        if: matrix.os == 'windows-latest'
+        id: set_name_win
+        run: echo "::set-output name=DOCKEYE_ARCHIVE::dockeye-${{steps.set_version_win.outputs.DOCKEYE_VERSION}}-${{ matrix.target}}"
+      - name: Install dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+      - run: cargo build --release
+        name: Release build
+      - name: Prepare archive directory
+        run: mkdir dockeye
+      - name: Move release files
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          mv target/release/dockeye dockeye/
+      - name: Move release files
+        if: matrix.os == 'windows-latest'
+        run: |
+          mv target/release/dockeye.exe dockeye/
+      - name: Move other files
+        run: |
+          mv README.md dockeye/
+          mv LICENSE dockeye/
+      - name: Create archives
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          tar -zcvf ${{ steps.set_name.outputs.DOCKEYE_ARCHIVE }}.tar.gz dockeye
+          tar -Jcvf ${{ steps.set_name.outputs.DOCKEYE_ARCHIVE }}.tar.xz dockeye
+      - name: Create archives
+        if: matrix.os == 'windows-latest'
+        run: |
+          7z a ${{ steps.set_name_win.outputs.DOCKEYE_ARCHIVE }}.zip dockeye
+      - name: Upload gz
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_name: vv9k/dockeye
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.set_name.outputs.DOCKEYE_ARCHIVE }}.tar.gz
+          asset_name: ${{ steps.set_name.outputs.DOCKEYE_ARCHIVE }}.tar.gz
+          tag: ${{ steps.set_version.outputs.DOCKEYE_VERSION }}
+          overwrite: true
+      - name: Upload xz
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_name: vv9k/dockeye
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.set_name.outputs.DOCKEYE_ARCHIVE }}.tar.xz
+          asset_name: ${{ steps.set_name.outputs.DOCKEYE_ARCHIVE }}.tar.xz
+          tag: ${{ steps.set_version.outputs.DOCKEYE_VERSION }}
+          overwrite: true
+      - name: Upload zip
+        if: matrix.os == 'windows-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_name: vv9k/dockeye
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.set_name_win.outputs.DOCKEYE_ARCHIVE }}.zip
+          asset_name: ${{ steps.set_name_win.outputs.DOCKEYE_ARCHIVE }}.zip
+          tag: ${{ steps.set_version_win.outputs.DOCKEYE_VERSION }}
+          overwrite: true
