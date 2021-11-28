@@ -409,7 +409,7 @@ impl App {
                 text.push('\n');
             }
         }
-        if self.pull_view.in_progress || progress_percent == 1. {
+        if self.pull_view.in_progress || (progress_percent - 1.).abs() < f32::EPSILON {
             ui.add(
                 egui::ProgressBar::new(progress_percent)
                     .desired_width(200.)
