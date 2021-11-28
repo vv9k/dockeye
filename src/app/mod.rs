@@ -1,10 +1,12 @@
 mod containers;
 mod images;
+mod settings;
 mod ui;
 
 use crate::event::{EventRequest, EventResponse};
 use containers::ContainersTab;
 use images::ImagesTab;
+use settings::{Settings, SettingsWindow};
 
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
@@ -31,40 +33,6 @@ impl AsRef<str> for Tab {
 impl Default for Tab {
     fn default() -> Self {
         Self::Containers
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct SettingsWindow {
-    show: bool,
-    config: Config,
-}
-
-impl SettingsWindow {
-    pub fn toggle(&mut self) {
-        self.show = !self.show;
-    }
-
-    pub fn display(&mut self, ctx: &egui::CtxRef) {
-        egui::Window::new("settings")
-            .open(&mut self.show)
-            .show(ctx, |ui| {
-                ui.label("Docker address:");
-                ui.text_edit_singleline(&mut self.config.docker_addr);
-            });
-    }
-}
-
-#[derive(Debug)]
-pub struct Config {
-    docker_addr: String,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            docker_addr: crate::DEFAULT_DOCKER_ADDR.to_string(),
-        }
     }
 }
 
@@ -96,9 +64,18 @@ impl epi::App for App {
         _frame: &mut epi::Frame<'_>,
         _storage: Option<&dyn epi::Storage>,
     ) {
+        if let Some(settings_path) = &self.settings_window.settings_path {
+            log::trace!("loading settings");
+            match Settings::load(&settings_path) {
+                Ok(settings) => self.settings_window.settings = settings,
+                Err(e) => log::error!("{:?}", e),
+            }
+        }
     }
 
-    fn save(&mut self, _storage: &mut dyn epi::Storage) {}
+    fn save(&mut self, _storage: &mut dyn epi::Storage) {
+        let _ = self.settings_window.save_settings();
+    }
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         self.display(ctx);

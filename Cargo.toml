@@ -22,3 +22,7 @@ clipboard = "0.5"
 http = "0.2"
 lazy_static = "1"
 native-dialog = "0.5.5"
+dirs = "4"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.8"
+

@@ -6,6 +6,8 @@ use clipboard::ClipboardProvider;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
 pub use worker::DockerWorker;
 
+pub const APP_NAME: &str = "dockeye";
+
 fn conv_metric(value: f64, unit: &str) -> String {
     const KILO: f64 = 1000.;
     const MEGA: f64 = KILO * KILO;
