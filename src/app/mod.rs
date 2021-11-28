@@ -3,6 +3,8 @@ mod images;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
 use crate::worker::RunningContainerStats;
+use containers::ContainerView;
+
 use anyhow::{Context, Result};
 use docker_api::api::{
     ContainerDetails, ContainerInfo, ContainerListOpts, ImageBuildChunk, ImageInfo, Status,
@@ -219,6 +221,7 @@ pub struct App {
 
     settings_window: SettingsWindow,
     pull_view: PullView,
+    container_view: ContainerView,
 }
 
 impl epi::App for App {
@@ -402,6 +405,7 @@ impl App {
 
             settings_window: SettingsWindow::default(),
             pull_view: PullView::default(),
+            container_view: ContainerView::Details,
         }
     }
 

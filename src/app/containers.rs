@@ -98,6 +98,13 @@ macro_rules! btn {
     };
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ContainerView {
+    Details,
+    Logs,
+    Attach,
+}
+
 impl App {
     pub fn containers_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -207,10 +214,23 @@ impl App {
                 );
                 self.container_buttons(ui, container, &mut errors);
             });
-            ui.add_space(25.);
-            self.container_info(ui, container);
-            self.container_stats(ui);
-            self.container_logs(ui);
+            ui.add_space(10.);
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.container_view, ContainerView::Details, "details");
+                ui.selectable_value(&mut self.container_view, ContainerView::Logs, "logs");
+                ui.selectable_value(&mut self.container_view, ContainerView::Attach, "attach");
+            });
+            ui.add_space(15.);
+            match self.container_view {
+                ContainerView::Details => {
+                    self.container_info(ui, container);
+                    self.container_stats(ui);
+                }
+                ContainerView::Logs => {
+                    self.container_logs(ui);
+                }
+                ContainerView::Attach => {}
+            }
         }
         errors.into_iter().for_each(|error| self.add_error(error));
     }
