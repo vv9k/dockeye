@@ -7,8 +7,15 @@
 # Instalation
 
 Install required libraries (only required on Linux):
+
+### APT
 ```shell
 $ apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+```
+
+### Pacman
+```Shell
+$ pacman -S libxcb libxkbcommon
 ```
 
 To install **dockeye** you'll need the latest rust with cargo. To build run:
