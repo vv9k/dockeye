@@ -1,4 +1,8 @@
-use crate::app::{key, key_val, line, val, App, DELETE_ICON, INFO_ICON, SAVE_ICON, SCROLL_ICON};
+use crate::app::{
+    ui::icon,
+    ui::{key, key_val, line, val},
+    App,
+};
 use crate::event::EventRequest;
 use crate::ImageInspectInfo;
 use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth};
@@ -123,7 +127,7 @@ impl App {
                                 .show(ui, |ui| {
                                     let image_name = name(&image.id, image.repo_tags.as_ref());
                                     ui.scope(|ui| {
-                                        ui.heading(SCROLL_ICON);
+                                        ui.heading(icon::SCROLL);
                                         ui.add(Label::new(&image_name).strong().wrap(true));
                                     });
                                     ui.end_row();
@@ -136,7 +140,7 @@ impl App {
 
                                     ui.scope(|ui| {
                                         if ui
-                                            .button(INFO_ICON)
+                                            .button(icon::INFO)
                                             .on_hover_text(
                                                 "display detailed information about the image",
                                             )
@@ -152,7 +156,7 @@ impl App {
                                             view = ImagesView::Image;
                                         }
                                         if ui
-                                            .button(DELETE_ICON)
+                                            .button(icon::DELETE)
                                             .on_hover_text("delete the image")
                                             .clicked()
                                         {
@@ -165,7 +169,7 @@ impl App {
                                             };
                                         }
                                         if ui
-                                            .button(SAVE_ICON)
+                                            .button(icon::SAVE)
                                             .on_hover_text(
                                                 "save the image to filesystem as tar archive",
                                             )

@@ -1,6 +1,7 @@
 use crate::app::{
-    colors, key, key_val, line, val, App, DELETE_ICON, INFO_ICON, PACKAGE_ICON, PAUSE_ICON,
-    PLAY_ICON, STOP_ICON,
+    ui::icon,
+    ui::{color, key, key_val, line, val},
+    App,
 };
 use crate::event::EventRequest;
 use crate::worker::RunningContainerStats;
@@ -18,7 +19,7 @@ pub fn is_paused(container: &ContainerDetails) -> bool {
     matches!(container.state.status, ContainerStatus::Paused)
 }
 macro_rules! btn {
-    ($self:ident, $ui:ident, $icon:ident, $hover:literal, $event:expr, $errors: ident) => {
+    ($self:ident, $ui:ident, $icon:expr, $hover:literal, $event:expr, $errors: ident) => {
         if $ui.button($icon).on_hover_text($hover).clicked() {
             if let Err(e) = $self.send_event($event) {
                 $errors.push(Box::new(e));
@@ -29,7 +30,7 @@ macro_rules! btn {
         btn!(
             $self,
             $ui,
-            STOP_ICON,
+            icon::STOP,
             "stop the container",
             EventRequest::StopContainer {
                 id: $container.id.clone()
@@ -41,7 +42,7 @@ macro_rules! btn {
         btn!(
             $self,
             $ui,
-            PLAY_ICON,
+            icon::PLAY,
             "start the container",
             EventRequest::StartContainer {
                 id: $container.id.clone()
@@ -53,7 +54,7 @@ macro_rules! btn {
         btn!(
             $self,
             $ui,
-            PAUSE_ICON,
+            icon::PAUSE,
             "pause the container",
             EventRequest::PauseContainer {
                 id: $container.id.clone()
@@ -65,7 +66,7 @@ macro_rules! btn {
         btn!(
             $self,
             $ui,
-            PLAY_ICON,
+            icon::PLAY,
             "unpause the container",
             EventRequest::UnpauseContainer {
                 id: $container.id.clone()
@@ -77,7 +78,7 @@ macro_rules! btn {
         btn!(
             $self,
             $ui,
-            INFO_ICON,
+            icon::INFO,
             "inpect the container",
             EventRequest::ContainerTraceStart {
                 id: $container.id.clone()
@@ -89,7 +90,7 @@ macro_rules! btn {
         btn!(
             $self,
             $ui,
-            DELETE_ICON,
+            icon::DELETE,
             "delete the container",
             EventRequest::DeleteContainer {
                 id: $container.id.clone()
@@ -147,7 +148,7 @@ impl App {
                         } else {
                             egui::Color32::RED
                         };
-                        let dot = egui::Label::new(PACKAGE_ICON)
+                        let dot = egui::Label::new(icon::PACKAGE)
                             .text_color(color)
                             .heading()
                             .strong();
@@ -229,7 +230,7 @@ impl App {
             };
             ui.horizontal(|ui| {
                 ui.add(
-                    egui::Label::new(PACKAGE_ICON)
+                    egui::Label::new(icon::PACKAGE)
                         .text_color(color)
                         .heading()
                         .strong(),
@@ -617,9 +618,9 @@ impl App {
                         }
                     });
                     let color = if ui.visuals().dark_mode {
-                        *colors::D_BG_000
+                        *color::D_BG_000
                     } else {
-                        *colors::L_BG_4
+                        *color::L_BG_4
                     };
                     Frame::none().fill(color).show(ui, |ui| {
                         ui.add(
@@ -669,9 +670,9 @@ impl App {
                 .default_open(false)
                 .show(ui, |ui| {
                     let color = if ui.visuals().dark_mode {
-                        *colors::D_BG_000
+                        *color::D_BG_000
                     } else {
-                        *colors::L_BG_4
+                        *color::L_BG_4
                     };
                     Frame::none().fill(color).show(ui, |ui| {
                         ui.add(
