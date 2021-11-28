@@ -22,5 +22,3 @@ clipboard = "0.5"
 http = "0.2"
 lazy_static = "1"
 native-dialog = "0.5.5"
-
-parking_lot_core = "=0.8.0" # fix WASM build

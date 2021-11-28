@@ -632,7 +632,6 @@ dependencies = [
  "lazy_static",
  "log",
  "native-dialog",
- "parking_lot_core",
  "pretty_env_logger",
  "strip-ansi-escapes",
  "tokio",
