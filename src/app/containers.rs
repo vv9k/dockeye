@@ -108,7 +108,9 @@ pub enum ContainerView {
 impl App {
     pub fn containers_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.wrap_text();
             egui::Grid::new("side_panel")
+                .spacing((0., 0.))
                 .min_col_width(100.)
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
@@ -137,6 +139,7 @@ impl App {
                             egui::Frame::none().margin((0., 0.))
                         };
                         frame.show(ui, |ui| {
+                            ui.add_space(5.);
                             egui::Grid::new(&container.id)
                                 .min_col_width(100.)
                                 .max_col_width(self.side_panel_size())

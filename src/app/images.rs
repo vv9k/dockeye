@@ -87,23 +87,27 @@ impl App {
                         };
 
                         frame.show(ui, |ui| {
+                            ui.add_space(5.);
                             egui::Grid::new(&image.id)
-                                .spacing((0., 0.))
                                 .max_col_width(self.side_panel_size())
                                 .show(ui, |ui| {
                                     let image_name = name(&image.id, image.repo_tags.as_ref());
                                     ui.scope(|ui| {
+                                        ui.add_space(5.);
                                         ui.heading(SCROLL_ICON);
                                         ui.add(Label::new(&image_name).strong().wrap(true));
                                     });
                                     ui.end_row();
 
+                                    ui.add_space(5.);
                                     ui.add(Label::new(&image.created.to_rfc2822()).italics());
                                     ui.end_row();
 
+                                    ui.add_space(5.);
                                     ui.add(Label::new(crate::conv_b(image.virtual_size)).italics());
                                     ui.end_row();
 
+                                    ui.add_space(5.);
                                     ui.scope(|ui| {
                                         if ui
                                             .button(INFO_ICON)
@@ -166,11 +170,12 @@ impl App {
                                             }
                                         }
                                     });
+                                    ui.end_row();
+                                    line(ui, frame);
+                                    ui.end_row();
                                 });
                             ui.allocate_space((ui.available_width(), 0.).into());
                         });
-                        ui.end_row();
-                        line(ui, frame);
                         ui.end_row();
                     }
                     errors.iter().for_each(|err| self.add_notification(err));

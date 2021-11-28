@@ -315,7 +315,6 @@ impl App {
             } else {
                 *colors::L_BG_0
             },
-            margin: egui::vec2(5., 5.),
             ..Default::default()
         };
         egui::SidePanel::left("side_panel")
@@ -606,17 +605,18 @@ impl App {
 fn line(ui: &mut egui::Ui, frame: egui::Frame) -> egui::Response {
     frame
         .show(ui, |ui| {
-            let available_space = ui.available_size_before_wrap();
+            ui.set_max_height(1.);
+            let available_space = ui.available_size();
 
             let size = egui::vec2(available_space.x, 0.);
 
             let (rect, response) = ui.allocate_at_least(size, egui::Sense::hover());
             let points = [
-                egui::pos2(rect.left(), rect.top()),
-                egui::pos2(rect.right(), rect.top()),
+                egui::pos2(rect.left(), rect.bottom()),
+                egui::pos2(rect.right(), rect.bottom()),
             ];
 
-            let stroke = ui.visuals().widgets.noninteractive.bg_stroke;
+            let stroke = ui.visuals().widgets.noninteractive.fg_stroke;
             ui.painter().line_segment(points, stroke);
             response
         })
