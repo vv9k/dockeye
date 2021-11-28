@@ -362,50 +362,59 @@ impl App {
                 }
             }
         });
-        let text = self
-            .current_pull_chunks
-            .as_ref()
-            .map(|chunks| {
-                chunks.iter().fold(String::new(), |mut acc, chunk| {
-                    match chunk {
-                        ImageBuildChunk::Update { stream } => {
-                            acc.push_str("Update: ");
-                            acc.push_str(stream);
+        let mut text = String::new();
+        let mut progress_percent = 0.;
+        if let Some(chunks) = self.current_pull_chunks.as_ref() {
+            for chunk in chunks {
+                match chunk {
+                    ImageBuildChunk::Update { stream } => {
+                        text.push_str("Update: ");
+                        text.push_str(stream);
+                    }
+                    ImageBuildChunk::Error { error, .. } => {
+                        text.push_str("Error: ");
+                        text.push_str(error);
+                    }
+                    ImageBuildChunk::Digest { aux } => {
+                        text.push_str("Digest: ");
+                        text.push_str(&aux.id);
+                        progress_percent = 1.;
+                    }
+                    ImageBuildChunk::PullStatus {
+                        status,
+                        id: _,
+                        progress: _,
+                        progress_detail,
+                    } => {
+                        if status.starts_with("Digest") {
+                            progress_percent = 1.;
                         }
-                        ImageBuildChunk::Error { error, .. } => {
-                            acc.push_str("Error: ");
-                            acc.push_str(error);
-                        }
-                        ImageBuildChunk::Digest { aux } => {
-                            acc.push_str("Digest: ");
-                            acc.push_str(&aux.id);
-                        }
-                        ImageBuildChunk::PullStatus {
-                            status,
-                            id: _,
-                            progress: _,
-                            progress_detail,
-                        } => {
-                            acc.push_str("Status: ");
-                            acc.push_str(status);
-                            if let Some(progress) = progress_detail {
-                                if let Some(current) = progress.current {
-                                    if let Some(total) = progress.total {
-                                        acc.push_str(&format!(
-                                            " ({} / {})",
-                                            crate::conv_b(current),
-                                            crate::conv_b(total)
-                                        ));
-                                    }
+                        text.push_str("Status: ");
+                        text.push_str(status);
+                        if let Some(progress) = progress_detail {
+                            if let Some(current) = progress.current {
+                                if let Some(total) = progress.total {
+                                    progress_percent = current as f32 / total as f32;
+                                    text.push_str(&format!(
+                                        " ({} / {})",
+                                        crate::conv_b(current),
+                                        crate::conv_b(total)
+                                    ));
                                 }
                             }
                         }
                     }
-                    acc.push('\n');
-                    acc
-                })
-            })
-            .unwrap_or_default();
+                }
+                text.push('\n');
+            }
+        }
+        if self.pull_view.in_progress || progress_percent == 1. {
+            ui.add(
+                egui::ProgressBar::new(progress_percent)
+                    .desired_width(200.)
+                    .animate(true),
+            );
+        }
         ui.add(
             TextEdit::multiline(&mut text.as_str())
                 .code_editor()
