@@ -1,16 +1,13 @@
 mod containers;
 mod images;
 
-use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
-use crate::worker::RunningContainerStats;
-use containers::ContainerView;
+use crate::event::{EventRequest, EventResponse};
+use containers::ContainersTab;
+use images::ImagesTab;
 
 use anyhow::{Context, Result};
-use docker_api::api::{
-    ContainerDetails, ContainerInfo, ContainerListOpts, ImageBuildChunk, ImageInfo, Status,
-};
+use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
 use eframe::{egui, epi};
-use images::{ImagesView, PullView};
 use std::collections::VecDeque;
 use std::time::SystemTime;
 use tokio::sync::mpsc;
@@ -207,21 +204,10 @@ pub struct App {
     current_tab: Tab,
 
     notifications: VecDeque<(SystemTime, String)>,
-
-    containers: Vec<ContainerInfo>,
-    current_container: Option<Box<ContainerDetails>>,
-    current_stats: Option<Box<RunningContainerStats>>,
-    current_logs: Option<String>,
-    images: Vec<ImageInfo>,
-    current_image: Option<Box<ImageInspectInfo>>,
-    current_pull_chunks: Option<Vec<ImageBuildChunk>>,
-    current_image_view: ImagesView,
-
-    logs_page: usize,
+    containers: ContainersTab,
+    images: ImagesTab,
 
     settings_window: SettingsWindow,
-    pull_view: PullView,
-    container_view: ContainerView,
 }
 
 impl epi::App for App {
@@ -391,20 +377,10 @@ impl App {
 
             errors: VecDeque::new(),
             notifications: VecDeque::new(),
-
-            containers: vec![],
-            current_container: None,
-            current_stats: None,
-            current_logs: None,
-            images: vec![],
-            current_image: None,
-            current_pull_chunks: None,
-            logs_page: 0,
-            current_image_view: ImagesView::None,
+            containers: ContainersTab::default(),
+            images: ImagesTab::default(),
 
             settings_window: SettingsWindow::default(),
-            pull_view: PullView::default(),
-            container_view: ContainerView::Details,
         }
     }
 
@@ -433,13 +409,14 @@ impl App {
             ContainerListOpts::builder().all(true).build(),
         )));
         self.send_event_notify(EventRequest::ListImages(None));
-        if self.pull_view.in_progress {
+        if self.images.pull_view.in_progress {
             self.send_event_notify(EventRequest::PullImageChunks);
         }
-        if self.current_container.is_some() {
+        if self.containers.current_container.is_some() {
             self.send_event_notify(EventRequest::ContainerDetails);
             self.send_event_notify(EventRequest::ContainerLogs);
             if self
+                .containers
                 .current_container
                 .as_ref()
                 .map(|c| containers::is_running(c))
@@ -455,14 +432,16 @@ impl App {
         while let Ok(event) = self.rx_rsp.try_recv() {
             //log::warn!("[gui] received event: {:?}", event);
             match event {
-                EventResponse::ListContainers(containers) => self.containers = containers,
-                EventResponse::ListImages(images) => self.images = images,
+                EventResponse::ListContainers(containers) => {
+                    self.containers.containers = containers
+                }
+                EventResponse::ListImages(images) => self.images.images = images,
                 EventResponse::ContainerDetails(container) => self.set_container(container),
                 EventResponse::InspectContainerNotFound => {
                     self.add_error("container not found");
                     self.clear_container()
                 }
-                EventResponse::InspectImage(image) => self.current_image = Some(image),
+                EventResponse::InspectImage(image) => self.images.current_image = Some(image),
                 EventResponse::DeleteContainer(res) => match res {
                     Ok(id) => {
                         self.add_notification(format!("successfully deleted container {}", id))
@@ -490,20 +469,20 @@ impl App {
                     Err(e) => self.add_error(e),
                 },
                 EventResponse::ContainerStats(new_stats) => {
-                    if let Some(stats) = &mut self.current_stats {
+                    if let Some(stats) = &mut self.containers.current_stats {
                         stats.extend(*new_stats);
                     } else {
-                        self.current_stats = Some(new_stats)
+                        self.containers.current_stats = Some(new_stats)
                     }
                 }
                 EventResponse::ContainerLogs(logs) => {
                     let raw_bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
                     let escaped_bytes = strip_ansi_escapes::strip(&raw_bytes).unwrap_or(raw_bytes);
                     let logs = String::from_utf8_lossy(&escaped_bytes);
-                    if let Some(current_logs) = &mut self.current_logs {
+                    if let Some(current_logs) = &mut self.containers.current_logs {
                         current_logs.push_str(&logs);
                     } else {
-                        self.current_logs = Some(logs.to_string());
+                        self.containers.current_logs = Some(logs.to_string());
                     }
                 }
                 EventResponse::StartContainer(res)
@@ -524,16 +503,16 @@ impl App {
                 },
                 EventResponse::PullImage(res) => match res {
                     Ok(id) => {
-                        self.pull_view.in_progress = false;
+                        self.images.pull_view.in_progress = false;
                         self.add_notification(format!("successfully pulled image {}", id,))
                     }
                     Err(e) => self.add_error(e),
                 },
                 EventResponse::PullImageChunks(new_chunks) => {
-                    if let Some(chunks) = &mut self.current_pull_chunks {
+                    if let Some(chunks) = &mut self.images.current_pull_chunks {
                         chunks.extend(new_chunks);
                     } else {
-                        self.current_pull_chunks = Some(new_chunks);
+                        self.images.current_pull_chunks = Some(new_chunks);
                     }
                 }
             }
@@ -576,14 +555,15 @@ impl App {
     }
 
     fn clear_container(&mut self) {
-        self.current_container = None;
-        self.current_stats = None;
-        self.current_logs = None;
-        self.logs_page = 0;
+        self.containers.current_container = None;
+        self.containers.current_stats = None;
+        self.containers.current_logs = None;
+        self.containers.logs_page = 0;
     }
 
     fn set_container(&mut self, container: Box<ContainerDetails>) {
         let changed = self
+            .containers
             .current_container
             .as_ref()
             .map(|current| current.id != container.id)
@@ -598,7 +578,7 @@ impl App {
             }
         }
 
-        self.current_container = Some(container);
+        self.containers.current_container = Some(container);
     }
 }
 

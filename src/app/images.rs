@@ -1,6 +1,7 @@
 use crate::app::{key, key_val, line, val, App, DELETE_ICON, INFO_ICON, SAVE_ICON, SCROLL_ICON};
 use crate::event::EventRequest;
-use docker_api::api::{ImageBuildChunk, RegistryAuth};
+use crate::ImageInspectInfo;
+use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth};
 
 use anyhow::Error;
 use egui::{Grid, Label, TextEdit};
@@ -22,7 +23,7 @@ fn name(id: &str, tags: Option<&Vec<String>>) -> String {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PullView {
     pub image: String,
     pub user: String,
@@ -37,9 +38,29 @@ pub enum ImagesView {
     None,
 }
 
+#[derive(Debug)]
+pub struct ImagesTab {
+    pub images: Vec<ImageInfo>,
+    pub current_image: Option<Box<ImageInspectInfo>>,
+    pub current_pull_chunks: Option<Vec<ImageBuildChunk>>,
+    pub current_image_view: ImagesView,
+    pub pull_view: PullView,
+}
+impl Default for ImagesTab {
+    fn default() -> Self {
+        Self {
+            images: vec![],
+            current_image: None,
+            current_pull_chunks: None,
+            current_image_view: ImagesView::None,
+            pull_view: PullView::default(),
+        }
+    }
+}
+
 impl App {
     pub fn image_view(&mut self, ui: &mut egui::Ui) {
-        match self.current_image_view {
+        match self.images.current_image_view {
             ImagesView::Image => self.image_details(ui),
             ImagesView::Pull => self.image_pull(ui),
             ImagesView::None => {}
@@ -55,13 +76,21 @@ impl App {
 
     fn image_menu(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("image_menu").show(ui, |ui| {
-            ui.selectable_value(&mut self.current_image_view, ImagesView::None, "main view");
-            ui.selectable_value(&mut self.current_image_view, ImagesView::Pull, "pull");
+            ui.selectable_value(
+                &mut self.images.current_image_view,
+                ImagesView::None,
+                "main view",
+            );
+            ui.selectable_value(
+                &mut self.images.current_image_view,
+                ImagesView::Pull,
+                "pull",
+            );
         });
     }
 
     fn image_scroll(&mut self, ui: &mut egui::Ui) {
-        let mut view = self.current_image_view;
+        let mut view = self.images.current_image_view;
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.wrap_text();
             egui::Grid::new("side_panel")
@@ -70,13 +99,14 @@ impl App {
                 .show(ui, |ui| {
                     let mut errors = vec![];
                     let color = ui.visuals().widgets.active.bg_fill;
-                    for image in &self.images {
+                    for image in &self.images.images {
                         let selected = self
+                            .images
                             .current_image
                             .as_ref()
                             .map(|i| {
                                 i.details.id == image.id
-                                    && self.current_image_view == ImagesView::Image
+                                    && self.images.current_image_view == ImagesView::Image
                             })
                             .unwrap_or_default();
 
@@ -177,11 +207,11 @@ impl App {
                     errors.iter().for_each(|err| self.add_notification(err));
                 });
         });
-        self.current_image_view = view;
+        self.images.current_image_view = view;
     }
 
     fn image_details(&self, ui: &mut egui::Ui) {
-        if let Some(image) = &self.current_image {
+        if let Some(image) = &self.images.current_image {
             let details = &image.details;
 
             ui.add(
@@ -322,50 +352,50 @@ impl App {
             ui.allocate_space((200., 0.).into());
             ui.end_row();
             ui.add(Label::new("Image to pull:").strong());
-            ui.add(TextEdit::singleline(&mut self.pull_view.image).desired_width(150.));
+            ui.add(TextEdit::singleline(&mut self.images.pull_view.image).desired_width(150.));
             ui.end_row();
             ui.add(Label::new("User:").strong());
-            ui.add(TextEdit::singleline(&mut self.pull_view.user).desired_width(150.));
+            ui.add(TextEdit::singleline(&mut self.images.pull_view.user).desired_width(150.));
             ui.end_row();
             ui.add(Label::new("Password:").strong());
             ui.add(
-                TextEdit::singleline(&mut self.pull_view.password)
+                TextEdit::singleline(&mut self.images.pull_view.password)
                     .password(true)
                     .desired_width(150.),
             );
             ui.end_row();
             if ui.button("pull").clicked() {
-                if self.pull_view.in_progress {
+                if self.images.pull_view.in_progress {
                     self.add_notification("Image pull already in progress");
-                } else if self.pull_view.image.is_empty() {
+                } else if self.images.pull_view.image.is_empty() {
                     self.add_notification("Image name can't be empty");
                 } else {
-                    let auth = if !self.pull_view.user.is_empty() {
+                    let auth = if !self.images.pull_view.user.is_empty() {
                         let mut auth = RegistryAuth::builder();
-                        if !self.pull_view.password.is_empty() {
+                        if !self.images.pull_view.password.is_empty() {
                             Some(
-                                auth.username(&self.pull_view.user)
-                                    .password(&self.pull_view.password)
+                                auth.username(&self.images.pull_view.user)
+                                    .password(&self.images.pull_view.password)
                                     .build(),
                             )
                         } else {
-                            Some(auth.username(&self.pull_view.user).build())
+                            Some(auth.username(&self.images.pull_view.user).build())
                         }
                     } else {
                         None
                     };
                     self.send_event_notify(EventRequest::PullImage {
-                        image: self.pull_view.image.clone(),
+                        image: self.images.pull_view.image.clone(),
                         auth,
                     });
-                    self.pull_view.in_progress = true;
-                    self.current_pull_chunks = None;
+                    self.images.pull_view.in_progress = true;
+                    self.images.current_pull_chunks = None;
                 }
             }
         });
         let mut text = String::new();
         let mut progress_percent = 0.;
-        if let Some(chunks) = self.current_pull_chunks.as_ref() {
+        if let Some(chunks) = self.images.current_pull_chunks.as_ref() {
             for chunk in chunks {
                 match chunk {
                     ImageBuildChunk::Update { stream } => {
@@ -409,7 +439,7 @@ impl App {
                 text.push('\n');
             }
         }
-        if self.pull_view.in_progress || (progress_percent - 1.).abs() < f32::EPSILON {
+        if self.images.pull_view.in_progress || (progress_percent - 1.).abs() < f32::EPSILON {
             ui.add(
                 egui::ProgressBar::new(progress_percent)
                     .desired_width(200.)

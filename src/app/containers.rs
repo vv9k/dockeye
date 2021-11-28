@@ -3,8 +3,9 @@ use crate::app::{
     PLAY_ICON, STOP_ICON,
 };
 use crate::event::EventRequest;
+use crate::worker::RunningContainerStats;
 
-use docker_api::api::{ContainerDetails, ContainerStatus};
+use docker_api::api::{ContainerDetails, ContainerInfo, ContainerStatus};
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
@@ -105,6 +106,29 @@ pub enum ContainerView {
     Attach,
 }
 
+#[derive(Debug)]
+pub struct ContainersTab {
+    pub containers: Vec<ContainerInfo>,
+    pub current_container: Option<Box<ContainerDetails>>,
+    pub current_stats: Option<Box<RunningContainerStats>>,
+    pub container_view: ContainerView,
+    pub current_logs: Option<String>,
+    pub logs_page: usize,
+}
+
+impl Default for ContainersTab {
+    fn default() -> Self {
+        Self {
+            containers: vec![],
+            current_container: None,
+            current_stats: None,
+            container_view: ContainerView::Details,
+            current_logs: None,
+            logs_page: 0,
+        }
+    }
+}
+
 impl App {
     pub fn containers_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -115,7 +139,7 @@ impl App {
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
                     let mut errors = vec![];
-                    for container in &self.containers {
+                    for container in &self.containers.containers {
                         let color = if &container.state == "running" {
                             egui::Color32::GREEN
                         } else if &container.state == "paused" {
@@ -129,6 +153,7 @@ impl App {
                             .strong();
                         let frame_color = ui.visuals().widgets.active.bg_fill;
                         let frame = if self
+                            .containers
                             .current_container
                             .as_ref()
                             .map(|c| c.id == container.id)
@@ -194,7 +219,7 @@ impl App {
 
     pub fn container_details(&mut self, ui: &mut egui::Ui) {
         let mut errors = vec![];
-        if let Some(container) = &self.current_container {
+        if let Some(container) = &self.containers.current_container {
             let color = if is_running(container) {
                 egui::Color32::GREEN
             } else if is_paused(container) {
@@ -219,12 +244,24 @@ impl App {
             });
             ui.add_space(10.);
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.container_view, ContainerView::Details, "details");
-                ui.selectable_value(&mut self.container_view, ContainerView::Logs, "logs");
-                ui.selectable_value(&mut self.container_view, ContainerView::Attach, "attach");
+                ui.selectable_value(
+                    &mut self.containers.container_view,
+                    ContainerView::Details,
+                    "details",
+                );
+                ui.selectable_value(
+                    &mut self.containers.container_view,
+                    ContainerView::Logs,
+                    "logs",
+                );
+                ui.selectable_value(
+                    &mut self.containers.container_view,
+                    ContainerView::Attach,
+                    "attach",
+                );
             });
             ui.add_space(15.);
-            match self.container_view {
+            match self.containers.container_view {
                 ContainerView::Details => {
                     self.container_info(ui, container);
                     self.container_stats(ui);
@@ -372,7 +409,7 @@ impl App {
     }
 
     fn container_stats(&self, ui: &mut egui::Ui) {
-        if let Some(stats) = &self.current_stats {
+        if let Some(stats) = &self.containers.current_stats {
             egui::CollapsingHeader::new("Stats")
                 .default_open(false)
                 .show(ui, |ui| {
@@ -627,7 +664,7 @@ impl App {
     }
 
     fn container_logs(&mut self, ui: &mut egui::Ui) {
-        if let Some(logs) = &self.current_logs {
+        if let Some(logs) = &self.containers.current_logs {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
                 .show(ui, |ui| {
