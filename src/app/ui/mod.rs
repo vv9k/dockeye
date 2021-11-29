@@ -1,8 +1,11 @@
+mod popup;
+
 use egui::{
     style::{Selection, Widgets},
     Color32, Stroke, Visuals,
 };
 use epaint::Shadow;
+pub use popup::{popup, ActionPopup, Popup};
 
 pub mod color {
     use egui::{Color32, Rgba};
