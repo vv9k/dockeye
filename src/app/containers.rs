@@ -168,7 +168,7 @@ impl App {
                             .text_color(color)
                             .heading()
                             .strong();
-                        let frame_color = ui.visuals().widgets.active.bg_fill;
+                        let frame_color = ui.visuals().widgets.open.bg_fill;
                         let frame = if self
                             .containers
                             .current_container
@@ -181,66 +181,78 @@ impl App {
                             egui::Frame::none().margin((0., 0.))
                         };
                         frame.show(ui, |ui| {
-                            ui.add_space(5.);
-                            egui::Grid::new(&container.id)
-                                .min_col_width(100.)
-                                .max_col_width(self.side_panel_size())
-                                .show(ui, |ui| {
-                                    ui.scope(|ui| {
-                                        ui.add(dot);
-                                        if let Some(name) = container.names.first() {
-                                            ui.add(
-                                                Label::new(name.trim_start_matches('/')).strong(),
-                                            );
+                            ui.vertical(|ui| {
+                                line(ui, frame);
+                                ui.add_space(5.);
+                                egui::Grid::new(&container.id)
+                                    .spacing((2.5, 5.))
+                                    .min_col_width(100.)
+                                    .max_col_width(self.side_panel_size())
+                                    .show(ui, |ui| {
+                                        ui.add_space(5.);
+                                        ui.scope(|ui| {
+                                            ui.add(dot);
+                                            if let Some(name) = container.names.first() {
+                                                ui.add(
+                                                    Label::new(name.trim_start_matches('/'))
+                                                        .strong()
+                                                        .heading(),
+                                                );
+                                            } else {
+                                                ui.add(
+                                                    Label::new(&container.id[..12])
+                                                        .strong()
+                                                        .heading(),
+                                                );
+                                            }
+                                        });
+                                        let image = if container.image.starts_with("sha256") {
+                                            &container.image.trim_start_matches("sha256:")[..12]
                                         } else {
-                                            ui.add(Label::new(&container.id[..12]).strong());
-                                        }
-                                    });
-                                    let image = if container.image.starts_with("sha256") {
-                                        &container.image.trim_start_matches("sha256:")[..12]
-                                    } else {
-                                        container.image.as_str()
-                                    };
-                                    ui.end_row();
-                                    ui.add(Label::new(image).italics());
-                                    ui.end_row();
+                                            container.image.as_str()
+                                        };
+                                        ui.end_row();
+                                        ui.add_space(5.);
+                                        ui.add(Label::new(image).italics().strong());
+                                        ui.end_row();
 
-                                    ui.add(Label::new(&container.status).italics());
-                                    ui.end_row();
+                                        ui.add_space(5.);
+                                        ui.add(Label::new(&container.status).italics().strong());
+                                        ui.end_row();
 
-                                    ui.scope(|ui| {
-                                        btn!(info => self, ui, container, errors);
-                                        if ui
-                                            .button(icon::DELETE)
-                                            .on_hover_text("Delete this container")
-                                            .clicked()
-                                        {
-                                            popups.push(ui::ActionPopup::new(
-                                                EventRequest::DeleteContainer {
-                                                    id: container.id.clone(),
-                                                },
-                                                "Delete container",
-                                                format!(
+                                        ui.add_space(5.);
+                                        ui.scope(|ui| {
+                                            btn!(info => self, ui, container, errors);
+                                            if ui
+                                                .button(icon::DELETE)
+                                                .on_hover_text("Delete this container")
+                                                .clicked()
+                                            {
+                                                popups.push(ui::ActionPopup::new(
+                                                    EventRequest::DeleteContainer {
+                                                        id: container.id.clone(),
+                                                    },
+                                                    "Delete container",
+                                                    format!(
                                                     "are you sure you want to delete container {}?",
                                                     &container.id
                                                 ),
-                                            ));
-                                        }
-                                        if &container.state == "running" {
-                                            btn!(stop => self, ui, container, errors);
-                                            btn!(pause => self, ui, container, errors);
-                                        } else if &container.state == "paused" {
-                                            btn!(stop => self, ui, container, errors);
-                                            btn!(unpause => self, ui, container, errors);
-                                        } else {
-                                            btn!(start => self, ui, container, errors);
-                                        }
+                                                ));
+                                            }
+                                            if &container.state == "running" {
+                                                btn!(stop => self, ui, container, errors);
+                                                btn!(pause => self, ui, container, errors);
+                                            } else if &container.state == "paused" {
+                                                btn!(stop => self, ui, container, errors);
+                                                btn!(unpause => self, ui, container, errors);
+                                            } else {
+                                                btn!(start => self, ui, container, errors);
+                                            }
+                                        });
+                                        ui.end_row();
                                     });
-                                    ui.end_row();
-                                    line(ui, frame);
-                                    ui.end_row();
-                                });
-                            ui.allocate_space((ui.available_width(), 0.).into());
+                                ui.add_space(5.);
+                            });
                         });
                         ui.end_row();
                     }

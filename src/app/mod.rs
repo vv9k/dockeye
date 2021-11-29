@@ -133,7 +133,7 @@ impl App {
 
     #[inline]
     fn side_panel_size(&self) -> f32 {
-        (self.current_window.width() / 6.).max(100.)
+        (self.current_window.width() / 6.).max(150.)
     }
 
     #[inline]

@@ -19,6 +19,7 @@ pub mod color {
         pub static ref D_BG_2: Color32 = Color32::from_rgb(0x31, 0x3f, 0x4e);
         pub static ref D_BG_3: Color32 = Color32::from_rgb(0x41, 0x53, 0x67);
         pub static ref D_FG_0: Color32 = Color32::from_rgb(0xe5, 0xde, 0xd6);
+        pub static ref D_FG_1: Color32 = Color32::from_rgb(0xc4, 0xbe, 0xb7);
         pub static ref D_BG_00_TRANSPARENT: Color32 = Rgba::from(*D_BG_00).multiply(0.96).into();
         pub static ref D_BG_0_TRANSPARENT: Color32 = Rgba::from(*D_BG_0).multiply(0.96).into();
         pub static ref D_BG_1_TRANSPARENT: Color32 = Rgba::from(*D_BG_1).multiply(0.96).into();
@@ -36,7 +37,8 @@ pub mod color {
         pub static ref L_BG_3_TRANSPARENT: Color32 = Rgba::from(*L_BG_3).multiply(0.86).into();
         pub static ref L_BG_4_TRANSPARENT: Color32 = Rgba::from(*L_BG_4).multiply(0.86).into();
         pub static ref L_BG_5_TRANSPARENT: Color32 = Rgba::from(*L_BG_5).multiply(0.86).into();
-        pub static ref L_FG_0: Color32 = *D_BG_0;
+        pub static ref L_FG_0: Color32 = Color32::from_rgb(0x08, 0x08, 0x08);
+        pub static ref L_FG_1: Color32 = Color32::from_rgb(0x0c, 0x0c, 0x0c);
     }
 }
 
@@ -55,16 +57,17 @@ pub mod icon {
 pub fn light_visuals() -> Visuals {
     use color::*;
     let mut widgets = Widgets::light();
-    widgets.noninteractive.bg_fill = *L_BG_3_TRANSPARENT;
-    widgets.inactive.bg_fill = *L_BG_3_TRANSPARENT;
-    widgets.inactive.bg_stroke = Stroke::new(0.5, *D_BG_3);
-    widgets.inactive.fg_stroke = Stroke::new(0.5, *D_BG_3);
-    widgets.hovered.bg_fill = *L_BG_4_TRANSPARENT;
-    widgets.hovered.bg_stroke = Stroke::new(1., *D_BG_1);
-    widgets.hovered.fg_stroke = Stroke::new(1., *D_BG_1);
-    widgets.active.bg_fill = *L_BG_5_TRANSPARENT;
-    widgets.active.fg_stroke = Stroke::new(1.5, *D_BG_0);
-    widgets.active.bg_stroke = Stroke::new(1.5, *D_BG_0);
+    widgets.noninteractive.bg_fill = *L_BG_0_TRANSPARENT;
+    widgets.inactive.bg_fill = *L_BG_1_TRANSPARENT;
+    widgets.hovered.bg_fill = *L_BG_3_TRANSPARENT;
+    widgets.open.bg_fill = *L_BG_3_TRANSPARENT;
+    widgets.active.bg_fill = *L_BG_4_TRANSPARENT;
+
+    widgets.noninteractive.fg_stroke = Stroke::new(1.2, *L_FG_1);
+    widgets.inactive.fg_stroke = Stroke::new(1.2, *L_FG_1);
+    widgets.hovered.fg_stroke = Stroke::new(1.5, *L_FG_1);
+    widgets.open.fg_stroke = Stroke::new(1.5, *L_FG_1);
+    widgets.active.fg_stroke = Stroke::new(1.5, *L_FG_0);
 
     Visuals {
         dark_mode: false,
@@ -85,7 +88,14 @@ pub fn dark_visuals() -> Visuals {
     widgets.noninteractive.bg_fill = *D_BG_0_TRANSPARENT;
     widgets.inactive.bg_fill = *D_BG_1_TRANSPARENT;
     widgets.hovered.bg_fill = *D_BG_2_TRANSPARENT;
-    widgets.active.bg_fill = *D_BG_0_TRANSPARENT;
+    widgets.open.bg_fill = *D_BG_2_TRANSPARENT;
+    widgets.active.bg_fill = *D_BG_3_TRANSPARENT;
+
+    widgets.noninteractive.fg_stroke = Stroke::new(0.7, *D_FG_1);
+    widgets.inactive.fg_stroke = Stroke::new(0.7, *D_FG_1);
+    widgets.hovered.fg_stroke = Stroke::new(1., *D_FG_0);
+    widgets.open.fg_stroke = Stroke::new(1., *D_FG_0);
+    widgets.active.fg_stroke = Stroke::new(1.5, *D_FG_0);
 
     Visuals {
         dark_mode: true,

@@ -5,3 +5,4 @@
 - Add `save` button to settings window
 - Add ability to change docker socket location in settings
 - Display a confirmation popup when deleting a container/image
+- A lot of ui fixes and tweaks, more readable text

@@ -112,7 +112,7 @@ impl App {
                 .show(ui, |ui| {
                     let mut errors = vec![];
                     let mut popups = vec![];
-                    let color = ui.visuals().widgets.active.bg_fill;
+                    let color = ui.visuals().widgets.open.bg_fill;
                     for image in &self.images.images {
                         let selected = self
                             .images
@@ -131,93 +131,114 @@ impl App {
                         };
 
                         frame.show(ui, |ui| {
-                            ui.add_space(5.);
-                            egui::Grid::new(&image.id)
-                                .max_col_width(self.side_panel_size())
-                                .show(ui, |ui| {
-                                    let image_name = name(&image.id, image.repo_tags.as_ref());
-                                    ui.scope(|ui| {
-                                        ui.heading(icon::SCROLL);
-                                        ui.add(Label::new(&image_name).strong().wrap(true));
-                                    });
-                                    ui.end_row();
+                            ui.vertical(|ui| {
+                                line(ui, frame);
+                                ui.add_space(5.);
+                                egui::Grid::new(&image.id)
+                                    .spacing((2.5, 5.))
+                                    .max_col_width(self.side_panel_size())
+                                    .show(ui, |ui| {
+                                        let image_name = name(&image.id, image.repo_tags.as_ref());
 
-                                    ui.add(Label::new(&image.created.to_rfc2822()).italics());
-                                    ui.end_row();
+                                        ui.add_space(5.);
+                                        ui.scope(|ui| {
+                                            ui.add(Label::new(icon::SCROLL).heading().strong());
+                                            ui.add(
+                                                Label::new(&image_name)
+                                                    .heading()
+                                                    .strong()
+                                                    .wrap(true),
+                                            );
+                                        });
+                                        ui.end_row();
 
-                                    ui.add(Label::new(crate::conv_b(image.virtual_size)).italics());
-                                    ui.end_row();
+                                        ui.add_space(5.);
+                                        ui.add(
+                                            Label::new(&image.created.to_rfc2822())
+                                                .italics()
+                                                .strong(),
+                                        );
+                                        ui.end_row();
 
-                                    ui.scope(|ui| {
-                                        if ui
-                                            .button(icon::INFO)
-                                            .on_hover_text(
-                                                "display detailed information about the image",
-                                            )
-                                            .clicked()
-                                        {
-                                            if let Err(e) =
-                                                self.send_event(EventRequest::InspectImage {
-                                                    id: image.id.clone(),
-                                                })
+                                        ui.add_space(5.);
+                                        ui.add(
+                                            Label::new(crate::conv_b(image.virtual_size))
+                                                .italics()
+                                                .strong(),
+                                        );
+                                        ui.end_row();
+
+                                        ui.add_space(5.);
+                                        ui.scope(|ui| {
+                                            if ui
+                                                .button(icon::INFO)
+                                                .on_hover_text(
+                                                    "display detailed information about the image",
+                                                )
+                                                .clicked()
                                             {
-                                                errors.push(e);
-                                            };
-                                            view = ImagesView::Image;
-                                        }
-                                        if ui
-                                            .button(icon::DELETE)
-                                            .on_hover_text("delete the image")
-                                            .clicked()
-                                        {
-                                            popups.push(ui::ActionPopup::new(
-                                                EventRequest::DeleteImage {
-                                                    id: image.id.clone(),
-                                                },
-                                                "Delte image",
-                                                format!(
-                                                    "Are you sure you want to delete image {}",
-                                                    &image.id
-                                                ),
-                                            ));
-                                        }
-                                        if ui
-                                            .button(icon::SAVE)
-                                            .on_hover_text(
-                                                "save the image to filesystem as tar archive",
-                                            )
-                                            .clicked()
-                                        {
-                                            let tar_name = format!("image_{}", trim_id(&image.id));
-                                            log::warn!("{}", tar_name);
-                                            match native_dialog::FileDialog::new()
-                                                .add_filter("tar archive", &["tar"])
-                                                .set_filename(&tar_name[..])
-                                                .show_save_single_file()
-                                            {
-                                                Ok(Some(output_path)) => {
-                                                    if let Err(e) =
-                                                        self.send_event(EventRequest::SaveImage {
-                                                            id: image.id.clone(),
-                                                            output_path,
-                                                        })
-                                                    {
-                                                        errors.push(e);
-                                                    };
-                                                }
-                                                Ok(None) => {}
-                                                Err(e) => errors.push(Error::msg(format!(
-                                                    "failed to spawn a file dialog - {}",
-                                                    e,
-                                                ))),
+                                                if let Err(e) =
+                                                    self.send_event(EventRequest::InspectImage {
+                                                        id: image.id.clone(),
+                                                    })
+                                                {
+                                                    errors.push(e);
+                                                };
+                                                view = ImagesView::Image;
                                             }
-                                        }
+                                            if ui
+                                                .button(icon::DELETE)
+                                                .on_hover_text("delete the image")
+                                                .clicked()
+                                            {
+                                                popups.push(ui::ActionPopup::new(
+                                                    EventRequest::DeleteImage {
+                                                        id: image.id.clone(),
+                                                    },
+                                                    "Delte image",
+                                                    format!(
+                                                        "Are you sure you want to delete image {}",
+                                                        &image.id
+                                                    ),
+                                                ));
+                                            }
+                                            if ui
+                                                .button(icon::SAVE)
+                                                .on_hover_text(
+                                                    "save the image to filesystem as tar archive",
+                                                )
+                                                .clicked()
+                                            {
+                                                let tar_name =
+                                                    format!("image_{}", trim_id(&image.id));
+                                                log::warn!("{}", tar_name);
+                                                match native_dialog::FileDialog::new()
+                                                    .add_filter("tar archive", &["tar"])
+                                                    .set_filename(&tar_name[..])
+                                                    .show_save_single_file()
+                                                {
+                                                    Ok(Some(output_path)) => {
+                                                        if let Err(e) = self.send_event(
+                                                            EventRequest::SaveImage {
+                                                                id: image.id.clone(),
+                                                                output_path,
+                                                            },
+                                                        ) {
+                                                            errors.push(e);
+                                                        };
+                                                    }
+                                                    Ok(None) => {}
+                                                    Err(e) => errors.push(Error::msg(format!(
+                                                        "failed to spawn a file dialog - {}",
+                                                        e,
+                                                    ))),
+                                                }
+                                            }
+                                        });
+                                        ui.end_row();
                                     });
-                                    ui.end_row();
-                                    line(ui, frame);
-                                    ui.end_row();
-                                });
-                            ui.allocate_space((ui.available_width(), 0.).into());
+                                ui.add_space(5.);
+                            });
                         });
                         ui.end_row();
                     }
