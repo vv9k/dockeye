@@ -1,4 +1,5 @@
 use crate::app::{
+    ui,
     ui::icon,
     ui::{key, key_val, line, val},
     App,
@@ -110,6 +111,7 @@ impl App {
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
                     let mut errors = vec![];
+                    let mut popups = vec![];
                     let color = ui.visuals().widgets.active.bg_fill;
                     for image in &self.images.images {
                         let selected = self
@@ -168,13 +170,16 @@ impl App {
                                             .on_hover_text("delete the image")
                                             .clicked()
                                         {
-                                            if let Err(e) =
-                                                self.send_event(EventRequest::DeleteImage {
+                                            popups.push(ui::ActionPopup::new(
+                                                EventRequest::DeleteImage {
                                                     id: image.id.clone(),
-                                                })
-                                            {
-                                                errors.push(e);
-                                            };
+                                                },
+                                                "Delte image",
+                                                format!(
+                                                    "Are you sure you want to delete image {}",
+                                                    &image.id
+                                                ),
+                                            ));
                                         }
                                         if ui
                                             .button(icon::SAVE)
@@ -217,6 +222,7 @@ impl App {
                         ui.end_row();
                     }
                     errors.iter().for_each(|err| self.add_notification(err));
+                    self.popups.extend(popups);
                 });
         });
         self.images.current_image_view = view;

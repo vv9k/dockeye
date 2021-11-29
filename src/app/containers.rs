@@ -1,4 +1,5 @@
 use crate::app::{
+    ui,
     ui::icon,
     ui::{color, key, key_val, line, val},
     App,
@@ -154,6 +155,7 @@ impl App {
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
                     let mut errors = vec![];
+                    let mut popups = vec![];
                     for container in &self.containers.containers {
                         let color = if &container.state == "running" {
                             egui::Color32::GREEN
@@ -208,7 +210,22 @@ impl App {
 
                                     ui.scope(|ui| {
                                         btn!(info => self, ui, container, errors);
-                                        btn!(delete => self, ui, container, errors);
+                                        if ui
+                                            .button(icon::DELETE)
+                                            .on_hover_text("Delete this container")
+                                            .clicked()
+                                        {
+                                            popups.push(ui::ActionPopup::new(
+                                                EventRequest::DeleteContainer {
+                                                    id: container.id.clone(),
+                                                },
+                                                "Delete container",
+                                                format!(
+                                                    "are you sure you want to delete container {}?",
+                                                    &container.id
+                                                ),
+                                            ));
+                                        }
                                         if &container.state == "running" {
                                             btn!(stop => self, ui, container, errors);
                                             btn!(pause => self, ui, container, errors);
@@ -228,6 +245,7 @@ impl App {
                         ui.end_row();
                     }
                     errors.into_iter().for_each(|error| self.add_error(error));
+                    self.popups.extend(popups);
                 });
         });
     }

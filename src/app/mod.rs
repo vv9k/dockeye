@@ -51,6 +51,7 @@ pub struct App {
     images: ImagesTab,
 
     settings_window: SettingsWindow,
+    popups: VecDeque<ui::ActionPopup>,
 }
 
 impl epi::App for App {
@@ -87,6 +88,7 @@ impl App {
         self.handle_data_update();
         self.read_worker_events();
         self.handle_notifications();
+        self.handle_popups();
 
         self.top_panel(ctx);
         self.side_panel(ctx);
@@ -175,6 +177,8 @@ impl App {
                     egui::ScrollArea::vertical().show(ui, |ui| self.image_view(ui));
                 }
             }
+
+            self.display_popups(ctx);
         });
     }
 
@@ -207,6 +211,12 @@ impl App {
             }
         }
     }
+
+    fn display_popups(&mut self, ctx: &egui::CtxRef) {
+        for popup in &mut self.popups {
+            popup.display(ctx);
+        }
+    }
 }
 
 impl App {
@@ -233,6 +243,7 @@ impl App {
                 settings,
                 ..Default::default()
             },
+            popups: VecDeque::new(),
         }
     }
 
@@ -452,5 +463,15 @@ impl App {
 
     pub fn docker_uri(&self) -> &str {
         &self.settings_window.settings.docker_addr
+    }
+
+    fn handle_popups(&mut self) {
+        if let Some(popup) = self.popups.pop_front() {
+            if !popup.is_finished() {
+                self.popups.push_back(popup);
+            } else if popup.is_confirmed() {
+                self.send_event_notify(popup.action());
+            }
+        }
     }
 }
