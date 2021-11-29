@@ -1,6 +1,6 @@
 mod containers;
 mod images;
-mod settings;
+pub mod settings;
 mod ui;
 
 use crate::event::{EventRequest, EventResponse};
@@ -64,17 +64,10 @@ impl epi::App for App {
         _frame: &mut epi::Frame<'_>,
         _storage: Option<&dyn epi::Storage>,
     ) {
-        if let Some(settings_path) = &self.settings_window.settings_path {
-            log::trace!("loading settings");
-            match Settings::load(&settings_path) {
-                Ok(settings) => self.settings_window.settings = settings,
-                Err(e) => log::error!("{:?}", e),
-            }
-        }
     }
 
     fn save(&mut self, _storage: &mut dyn epi::Storage) {
-        let _ = self.settings_window.save_settings();
+        self.save_settings();
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
@@ -217,7 +210,11 @@ impl App {
 }
 
 impl App {
-    pub fn new(tx_req: mpsc::Sender<EventRequest>, rx_rsp: mpsc::Receiver<EventResponse>) -> Self {
+    pub fn new(
+        settings: Settings,
+        tx_req: mpsc::Sender<EventRequest>,
+        rx_rsp: mpsc::Receiver<EventResponse>,
+    ) -> Self {
         Self {
             tx_req,
             rx_rsp,
@@ -232,7 +229,10 @@ impl App {
             containers: ContainersTab::default(),
             images: ImagesTab::default(),
 
-            settings_window: SettingsWindow::default(),
+            settings_window: SettingsWindow {
+                settings,
+                ..Default::default()
+            },
         }
     }
 
@@ -242,7 +242,7 @@ impl App {
 
     fn send_event_notify(&mut self, event: EventRequest) {
         if let Err(e) = self.send_event(event).context("sending event failed") {
-            self.add_notification(e);
+            self.add_error(e);
         }
     }
 
@@ -295,7 +295,7 @@ impl App {
                 EventResponse::ContainerDetails(container) => self.set_container(container),
                 EventResponse::InspectContainerNotFound => {
                     self.add_error("container not found");
-                    self.clear_container()
+                    self.containers.clear_container()
                 }
                 EventResponse::InspectImage(image) => self.images.current_image = Some(image),
                 EventResponse::DeleteContainer(res) => match res {
@@ -371,6 +371,13 @@ impl App {
                         self.images.current_pull_chunks = Some(new_chunks);
                     }
                 }
+                EventResponse::DockerUriChange(res) => match res {
+                    Ok(()) => {
+                        self.clear_all();
+                        self.add_notification("Successfully changed Docker uri")
+                    }
+                    Err(e) => self.add_error(e),
+                },
             }
         }
     }
@@ -410,11 +417,9 @@ impl App {
         }
     }
 
-    fn clear_container(&mut self) {
-        self.containers.current_container = None;
-        self.containers.current_stats = None;
-        self.containers.current_logs = None;
-        self.containers.logs_page = 0;
+    fn clear_all(&mut self) {
+        self.containers.clear();
+        self.images.clear();
     }
 
     fn set_container(&mut self, container: Box<ContainerDetails>) {
@@ -426,14 +431,26 @@ impl App {
             .unwrap_or(true);
 
         if changed {
-            self.clear_container();
-            if let Err(e) = self.send_event(EventRequest::ContainerTraceStart {
+            self.containers.clear_container();
+            self.send_event_notify(EventRequest::ContainerTraceStart {
                 id: container.id.clone(),
-            }) {
-                self.add_error(e);
-            }
+            });
         }
 
         self.containers.current_container = Some(container);
+    }
+
+    fn save_settings(&mut self) {
+        if let Err(e) = self.settings_window.save_settings() {
+            self.add_error(e);
+        } else {
+            self.send_event_notify(EventRequest::DockerUriChange {
+                uri: self.settings_window.settings.docker_addr.clone(),
+            });
+        }
+    }
+
+    pub fn docker_uri(&self) -> &str {
+        &self.settings_window.settings.docker_addr
     }
 }

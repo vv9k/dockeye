@@ -1,7 +1,7 @@
 mod app;
 mod event;
 mod worker;
-pub use app::App;
+pub use app::{settings, App};
 use clipboard::ClipboardProvider;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
 pub use worker::DockerWorker;

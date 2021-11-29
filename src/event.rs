@@ -52,6 +52,9 @@ pub enum EventRequest {
         auth: Option<RegistryAuth>,
     },
     PullImageChunks,
+    DockerUriChange {
+        uri: String,
+    },
 }
 
 #[derive(Debug)]
@@ -72,4 +75,5 @@ pub enum EventResponse {
     SaveImage(anyhow::Result<(String, std::path::PathBuf)>),
     PullImage(anyhow::Result<String>),
     PullImageChunks(Vec<ImageBuildChunk>),
+    DockerUriChange(anyhow::Result<()>),
 }

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub const FILENAME: &str = "dockeye.yml";
+
 pub fn dir() -> Option<PathBuf> {
     dirs::config_dir()
 }
@@ -54,7 +56,7 @@ impl Default for SettingsWindow {
         Self {
             show: false,
             settings: Settings::default(),
-            settings_path: dir().map(|d| d.join("dockeye.yaml")),
+            settings_path: dir().map(|d| d.join(FILENAME)),
             msg: None,
         }
     }
@@ -87,21 +89,31 @@ impl SettingsWindow {
                     };
                     ui.add(egui::Label::new(m).text_color(color));
                 }
-                ui.label("Docker address:");
-                ui.text_edit_singleline(&mut self.settings.docker_addr);
-                if ui.button("save").clicked() {
-                    if let Err(e) = self.save_settings() {
-                        msg = Some(Message::Error(format!("{:?}", e)));
-                    } else {
-                        msg = Some(Message::Ok(format!(
-                            "successfully saved settings {}",
-                            self.settings_path
-                                .as_deref()
-                                .map(|p| format!("to {}", p.display()))
-                                .unwrap_or_default(),
-                        )));
+                egui::Grid::new("settings_grid").show(ui, |ui| {
+                    ui.label("Docker address:");
+                    ui.text_edit_singleline(&mut self.settings.docker_addr)
+                        .on_hover_text(
+                            r#"Can be one of:
+ - unix:///path/to/docker.sock
+ - http://some.http.con.com
+ - https://some.https.con.com
+"#,
+                        );
+                    ui.end_row();
+                    if ui.button("save").clicked() {
+                        if let Err(e) = self.save_settings() {
+                            msg = Some(Message::Error(format!("{:?}", e)));
+                        } else {
+                            msg = Some(Message::Ok(format!(
+                                "successfully saved settings {}",
+                                self.settings_path
+                                    .as_deref()
+                                    .map(|p| format!("to {}", p.display()))
+                                    .unwrap_or_default(),
+                            )));
+                        }
                     }
-                }
+                });
             });
         self.show = show;
         self.msg = msg;

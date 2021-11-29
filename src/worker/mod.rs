@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 
 pub struct DockerWorker {
     docker: Docker,
+    uri: String,
     rx_req: mpsc::Receiver<EventRequest>,
     tx_rsp: mpsc::Sender<EventResponse>,
 }
@@ -28,14 +29,16 @@ impl DockerWorker {
         tx_rsp: mpsc::Sender<EventResponse>,
     ) -> Result<Self> {
         Ok(DockerWorker {
-            docker: Docker::new(uri)?,
+            docker: Docker::new(&uri)?,
+            uri,
             rx_req,
             tx_rsp,
         })
     }
     pub async fn work(self) -> Result<()> {
         let Self {
-            docker,
+            mut docker,
+            uri: mut current_uri,
             mut rx_req,
             tx_rsp,
         } = self;
@@ -305,6 +308,50 @@ impl DockerWorker {
                             }
                             let chunks = rx_chunks.recv().await.unwrap_or_default();
                             EventResponse::PullImageChunks(chunks)
+                        }
+                        EventRequest::DockerUriChange { uri } => {
+                            if uri == current_uri {
+                                continue;
+                            }
+                            current_uri = uri;
+                            docker = match Docker::new(&current_uri)
+                                .context("failed to initialize docker")
+                            {
+                                Ok(docker) => docker,
+                                Err(e) => return EventResponse::DockerUriChange(Err(e)),
+                            };
+                            if image_pull_in_progress {
+                                if let Err(e) = tx_pull_event.send(ImagePullEvent::Kill).await {
+                                    error!("failed to kill image pull worker: {}", e);
+                                }
+                            }
+                            if image_export_in_progress {
+                                if let Err(e) =
+                                    _tx_image_export_event.send(ImageExportEvent::Kill).await
+                                {
+                                    error!("failed to kill image export worker: {}", e);
+                                }
+                            }
+
+                            if let Some(id) = current_id.as_ref() {
+                                if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
+                                    error!("failed to kill logs worker: {}", e);
+                                }
+                                if let Err(e) = tx_stats_event.send(StatsWorkerEvent::Kill).await {
+                                    error!("failed to kill stats worker: {}", e);
+                                }
+
+                                let s = StatsWorker::new(id);
+                                tx_stats_event = s.1;
+                                rx_stats = s.2;
+                                let _ = tokio::spawn(s.0.work(docker.clone()));
+
+                                let w = LogsWorker::new(id);
+                                tx_logs_event = w.1;
+                                rx_logs = w.2;
+                                let _ = tokio::spawn(w.0.work(docker.clone()));
+                            }
+                            EventResponse::DockerUriChange(Ok(()))
                         }
                     };
                     debug!("sending response to event: {}", event_str);
