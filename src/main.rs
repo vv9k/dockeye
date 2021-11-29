@@ -1,5 +1,8 @@
 use anyhow::Result;
-use dockeye::{DockerWorker, EventRequest, EventResponse, DEFAULT_DOCKER_ADDR};
+use dockeye::{
+    settings::{self, Settings},
+    DockerWorker, EventRequest, EventResponse,
+};
 use tokio::sync::mpsc;
 
 fn main() -> Result<()> {
@@ -9,10 +12,24 @@ fn main() -> Result<()> {
     let (tx_rsp, rx_rsp) = mpsc::channel::<EventResponse>(64);
 
     let rt = tokio::runtime::Runtime::new()?;
-    let app = dockeye::App::new(tx_req, rx_rsp);
-    let native_options = eframe::NativeOptions::default();
+    let settings = settings::dir()
+        .and_then(|p| {
+            let p = p.join(settings::FILENAME);
+            match Settings::load(&p) {
+                Ok(settings) => Some(settings),
+                Err(e) => {
+                    log::error!("failed to read settings from `{}`: {}", p.display(), e);
+                    None
+                }
+            }
+        })
+        .unwrap_or_default();
 
-    DockerWorker::spawn(rt, DEFAULT_DOCKER_ADDR.to_string(), rx_req, tx_rsp);
+    let app = dockeye::App::new(settings, tx_req, rx_rsp);
+    let native_options = eframe::NativeOptions::default();
+    let uri = app.docker_uri().to_string();
+
+    DockerWorker::spawn(rt, uri, rx_req, tx_rsp);
 
     eframe::run_native(Box::new(app), native_options)
 }

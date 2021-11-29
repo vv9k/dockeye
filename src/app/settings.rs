@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub const FILENAME: &str = "dockeye.yml";
+
 pub fn dir() -> Option<PathBuf> {
     dirs::config_dir()
 }
@@ -54,7 +56,7 @@ impl Default for SettingsWindow {
         Self {
             show: false,
             settings: Settings::default(),
-            settings_path: dir().map(|d| d.join("dockeye.yaml")),
+            settings_path: dir().map(|d| d.join(FILENAME)),
             msg: None,
         }
     }

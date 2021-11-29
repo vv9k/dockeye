@@ -130,6 +130,20 @@ impl Default for ContainersTab {
     }
 }
 
+impl ContainersTab {
+    pub fn clear(&mut self) {
+        self.containers.clear();
+        self.clear_container();
+    }
+
+    pub fn clear_container(&mut self) {
+        self.current_container = None;
+        self.current_stats = None;
+        self.current_logs = None;
+        self.logs_page = 0;
+    }
+}
+
 impl App {
     pub fn containers_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {

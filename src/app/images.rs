@@ -61,6 +61,14 @@ impl Default for ImagesTab {
         }
     }
 }
+impl ImagesTab {
+    pub fn clear(&mut self) {
+        self.images.clear();
+        self.current_image = None;
+        self.current_pull_chunks = None;
+        self.current_image_view = ImagesView::None;
+    }
+}
 
 impl App {
     pub fn image_view(&mut self, ui: &mut egui::Ui) {
