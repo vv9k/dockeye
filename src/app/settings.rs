@@ -38,27 +38,27 @@ impl FontSizes {
             let size = *size;
             match style {
                 TextStyle::Small => {
-                    if self.small != size {
+                    if (self.small - size).abs() > f32::EPSILON {
                         return true;
                     }
                 }
                 TextStyle::Body => {
-                    if self.body != size {
+                    if (self.body - size).abs() > f32::EPSILON {
                         return true;
                     }
                 }
                 TextStyle::Button => {
-                    if self.button != size {
+                    if (self.button - size).abs() > f32::EPSILON {
                         return true;
                     }
                 }
                 TextStyle::Heading => {
-                    if self.heading != size {
+                    if (self.heading - size).abs() > f32::EPSILON {
                         return true;
                     }
                 }
                 TextStyle::Monospace => {
-                    if self.monospace != size {
+                    if (self.monospace - size).abs() > f32::EPSILON {
                         return true;
                     }
                 }
