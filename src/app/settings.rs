@@ -1,23 +1,93 @@
 use anyhow::{Context, Result};
+use egui::{FontDefinitions, FontFamily, TextStyle};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const FILENAME: &str = "dockeye.yml";
+const ALLOWED_FONT_SIZE: std::ops::RangeInclusive<f32> = 10.0..=50.0;
 
 pub fn dir() -> Option<PathBuf> {
     dirs::config_dir()
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct FontSizes {
+    pub small: f32,
+    pub body: f32,
+    pub button: f32,
+    pub heading: f32,
+    pub monospace: f32,
+}
+
+impl Default for FontSizes {
+    fn default() -> Self {
+        Self {
+            small: 10.,
+            body: 14.,
+            button: 14.,
+            heading: 20.,
+            monospace: 14.,
+        }
+    }
+}
+
+impl FontSizes {
+    pub fn update_ctx(&self, ctx: &egui::CtxRef) {
+        let mut fonts = FontDefinitions::default();
+
+        fonts
+            .family_and_size
+            .insert(TextStyle::Small, (FontFamily::Proportional, self.small));
+        fonts
+            .family_and_size
+            .insert(TextStyle::Small, (FontFamily::Monospace, self.small));
+
+        fonts
+            .family_and_size
+            .insert(TextStyle::Body, (FontFamily::Proportional, self.body));
+        fonts
+            .family_and_size
+            .insert(TextStyle::Body, (FontFamily::Monospace, self.body));
+
+        fonts
+            .family_and_size
+            .insert(TextStyle::Button, (FontFamily::Proportional, self.button));
+        fonts
+            .family_and_size
+            .insert(TextStyle::Button, (FontFamily::Monospace, self.button));
+
+        fonts
+            .family_and_size
+            .insert(TextStyle::Heading, (FontFamily::Proportional, self.heading));
+        fonts
+            .family_and_size
+            .insert(TextStyle::Heading, (FontFamily::Monospace, self.heading));
+
+        fonts.family_and_size.insert(
+            TextStyle::Monospace,
+            (FontFamily::Proportional, self.monospace),
+        );
+        fonts.family_and_size.insert(
+            TextStyle::Monospace,
+            (FontFamily::Monospace, self.monospace),
+        );
+
+        ctx.set_fonts(fonts);
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Settings {
     pub docker_addr: String,
+    pub fonts: FontSizes,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             docker_addr: crate::DEFAULT_DOCKER_ADDR.to_string(),
+            fonts: FontSizes::default(),
         }
     }
 }
@@ -100,6 +170,10 @@ impl SettingsWindow {
 "#,
                         );
                     ui.end_row();
+
+                    self.fonts_ui(ui);
+                    ui.end_row();
+
                     if ui.button("save").clicked() {
                         if let Err(e) = self.save_settings() {
                             msg = Some(Message::Error(format!("{:?}", e)));
@@ -117,5 +191,43 @@ impl SettingsWindow {
             });
         self.show = show;
         self.msg = msg;
+    }
+    fn fonts_ui(&mut self, ui: &mut egui::Ui) {
+        egui::CollapsingHeader::new("fonts")
+            .default_open(false)
+            .show(ui, |ui| {
+                egui::Grid::new("fonts_grid").show(ui, |ui| {
+                    ui.label("small");
+                    ui.add(
+                        egui::DragValue::new(&mut self.settings.fonts.small)
+                            .clamp_range(ALLOWED_FONT_SIZE),
+                    );
+                    ui.end_row();
+                    ui.label("body");
+                    ui.add(
+                        egui::DragValue::new(&mut self.settings.fonts.body)
+                            .clamp_range(ALLOWED_FONT_SIZE),
+                    );
+                    ui.end_row();
+                    ui.label("button");
+                    ui.add(
+                        egui::DragValue::new(&mut self.settings.fonts.button)
+                            .clamp_range(ALLOWED_FONT_SIZE),
+                    );
+                    ui.end_row();
+                    ui.label("heading");
+                    ui.add(
+                        egui::DragValue::new(&mut self.settings.fonts.heading)
+                            .clamp_range(ALLOWED_FONT_SIZE),
+                    );
+                    ui.end_row();
+                    ui.label("monospace");
+                    ui.add(
+                        egui::DragValue::new(&mut self.settings.fonts.monospace)
+                            .clamp_range(ALLOWED_FONT_SIZE),
+                    );
+                    ui.end_row();
+                });
+            });
     }
 }
