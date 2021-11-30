@@ -66,7 +66,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux]
+        build: [linux, macos-aarch64, macos-x86]
         include:
         - build: linux
           os: ubuntu-latest
@@ -74,9 +74,12 @@ jobs:
         #- build: windows-msvc
           #os: windows-latest
           #target: x86_64-pc-windows-msvc
-        - build: macos
+        - build: macos-aarch64
           os: macos-latest
           target: aarch64-apple-darwin
+        - build: macos-x86
+          os: macos-latest
+          target: x86_64-apple-darwin
 
     steps:
       - name: Set up Rust
