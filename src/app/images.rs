@@ -1,7 +1,7 @@
 use crate::app::{
     ui,
     ui::icon,
-    ui::{key, key_val, line, val},
+    ui::{key, key_val, val},
     App,
 };
 use crate::event::EventRequest;
@@ -131,10 +131,10 @@ impl App {
                         };
 
                         frame.show(ui, |ui| {
-                            ui.vertical(|ui| {
-                                line(ui, frame);
-                                ui.add_space(5.);
-                                egui::Grid::new(&image.id)
+                            egui::Grid::new(&image.id).spacing((0., 5.)).show(ui, |ui| {
+                                ui::line_with_size(ui, frame, (self.side_panel_size(), 1.));
+                                ui.end_row();
+                                egui::Grid::new(&image.id[0..8])
                                     .spacing((2.5, 5.))
                                     .max_col_width(self.side_panel_size())
                                     .show(ui, |ui| {
@@ -156,7 +156,8 @@ impl App {
                                         ui.add(
                                             Label::new(&image.created.to_rfc2822())
                                                 .italics()
-                                                .strong(),
+                                                .strong()
+                                                .wrap(true),
                                         );
                                         ui.end_row();
 
@@ -164,7 +165,8 @@ impl App {
                                         ui.add(
                                             Label::new(crate::conv_b(image.virtual_size))
                                                 .italics()
-                                                .strong(),
+                                                .strong()
+                                                .wrap(true),
                                         );
                                         ui.end_row();
 
@@ -237,7 +239,9 @@ impl App {
                                         });
                                         ui.end_row();
                                     });
-                                ui.add_space(5.);
+                                ui.end_row();
+                                ui.scope(|_| {});
+                                ui.end_row();
                             });
                         });
                         ui.end_row();

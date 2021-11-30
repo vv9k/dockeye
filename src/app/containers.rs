@@ -1,7 +1,7 @@
 use crate::app::{
     ui,
     ui::icon,
-    ui::{color, key, key_val, line, val},
+    ui::{color, key, key_val, val},
     App,
 };
 use crate::event::EventRequest;
@@ -151,7 +151,6 @@ impl App {
             ui.wrap_text();
             egui::Grid::new("side_panel")
                 .spacing((0., 0.))
-                .min_col_width(100.)
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
                     let mut errors = vec![];
@@ -181,78 +180,88 @@ impl App {
                             egui::Frame::none().margin((0., 0.))
                         };
                         frame.show(ui, |ui| {
-                            ui.vertical(|ui| {
-                                line(ui, frame);
-                                ui.add_space(5.);
-                                egui::Grid::new(&container.id)
-                                    .spacing((2.5, 5.))
-                                    .min_col_width(100.)
-                                    .max_col_width(self.side_panel_size())
-                                    .show(ui, |ui| {
-                                        ui.add_space(5.);
-                                        ui.scope(|ui| {
-                                            ui.add(dot);
-                                            if let Some(name) = container.names.first() {
-                                                ui.add(
-                                                    Label::new(name.trim_start_matches('/'))
-                                                        .strong()
-                                                        .heading(),
-                                                );
+                            egui::Grid::new(&container.id)
+                                .spacing((0., 5.))
+                                .show(ui, |ui| {
+                                    ui::line_with_size(ui, frame, (self.side_panel_size(), 1.));
+                                    ui.end_row();
+                                    egui::Grid::new(&container.id[0..8])
+                                        .spacing((2.5, 5.))
+                                        .max_col_width(self.side_panel_size())
+                                        .show(ui, |ui| {
+                                            ui.add_space(5.);
+                                            ui.scope(|ui| {
+                                                ui.add(dot);
+                                                if let Some(name) = container.names.first() {
+                                                    ui.add(
+                                                        Label::new(name.trim_start_matches('/'))
+                                                            .strong()
+                                                            .heading()
+                                                            .wrap(true),
+                                                    );
+                                                } else {
+                                                    ui.add(
+                                                        Label::new(&container.id[..12])
+                                                            .strong()
+                                                            .heading()
+                                                            .wrap(true),
+                                                    );
+                                                }
+                                            });
+                                            let image = if container.image.starts_with("sha256") {
+                                                &container.image.trim_start_matches("sha256:")[..12]
                                             } else {
-                                                ui.add(
-                                                    Label::new(&container.id[..12])
-                                                        .strong()
-                                                        .heading(),
-                                                );
-                                            }
-                                        });
-                                        let image = if container.image.starts_with("sha256") {
-                                            &container.image.trim_start_matches("sha256:")[..12]
-                                        } else {
-                                            container.image.as_str()
-                                        };
-                                        ui.end_row();
-                                        ui.add_space(5.);
-                                        ui.add(Label::new(image).italics().strong());
-                                        ui.end_row();
+                                                container.image.as_str()
+                                            };
+                                            ui.end_row();
+                                            ui.add_space(5.);
+                                            ui.add(Label::new(image).italics().strong().wrap(true));
+                                            ui.end_row();
 
-                                        ui.add_space(5.);
-                                        ui.add(Label::new(&container.status).italics().strong());
-                                        ui.end_row();
+                                            ui.add_space(5.);
+                                            ui.add(
+                                                Label::new(&container.status)
+                                                    .italics()
+                                                    .strong()
+                                                    .wrap(true),
+                                            );
+                                            ui.end_row();
 
-                                        ui.add_space(5.);
-                                        ui.scope(|ui| {
-                                            btn!(info => self, ui, container, errors);
-                                            if ui
-                                                .button(icon::DELETE)
-                                                .on_hover_text("Delete this container")
-                                                .clicked()
-                                            {
-                                                popups.push(ui::ActionPopup::new(
-                                                    EventRequest::DeleteContainer {
-                                                        id: container.id.clone(),
-                                                    },
-                                                    "Delete container",
-                                                    format!(
+                                            ui.add_space(5.);
+                                            ui.scope(|ui| {
+                                                btn!(info => self, ui, container, errors);
+                                                if ui
+                                                    .button(icon::DELETE)
+                                                    .on_hover_text("Delete this container")
+                                                    .clicked()
+                                                {
+                                                    popups.push(ui::ActionPopup::new(
+                                                        EventRequest::DeleteContainer {
+                                                            id: container.id.clone(),
+                                                        },
+                                                        "Delete container",
+                                                        format!(
                                                     "are you sure you want to delete container {}?",
                                                     &container.id
                                                 ),
-                                                ));
-                                            }
-                                            if &container.state == "running" {
-                                                btn!(stop => self, ui, container, errors);
-                                                btn!(pause => self, ui, container, errors);
-                                            } else if &container.state == "paused" {
-                                                btn!(stop => self, ui, container, errors);
-                                                btn!(unpause => self, ui, container, errors);
-                                            } else {
-                                                btn!(start => self, ui, container, errors);
-                                            }
+                                                    ));
+                                                }
+                                                if &container.state == "running" {
+                                                    btn!(stop => self, ui, container, errors);
+                                                    btn!(pause => self, ui, container, errors);
+                                                } else if &container.state == "paused" {
+                                                    btn!(stop => self, ui, container, errors);
+                                                    btn!(unpause => self, ui, container, errors);
+                                                } else {
+                                                    btn!(start => self, ui, container, errors);
+                                                }
+                                            });
+                                            ui.end_row();
                                         });
-                                        ui.end_row();
-                                    });
-                                ui.add_space(5.);
-                            });
+                                    ui.end_row();
+                                    ui.scope(|_| {});
+                                    ui.end_row();
+                                });
                         });
                         ui.end_row();
                     }

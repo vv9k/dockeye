@@ -110,27 +110,6 @@ pub fn dark_visuals() -> Visuals {
     }
 }
 
-pub fn line(ui: &mut egui::Ui, frame: egui::Frame) -> egui::Response {
-    frame
-        .show(ui, |ui| {
-            ui.set_max_height(1.);
-            let available_space = ui.available_size();
-
-            let size = egui::vec2(available_space.x, 0.);
-
-            let (rect, response) = ui.allocate_at_least(size, egui::Sense::hover());
-            let points = [
-                egui::pos2(rect.left(), rect.bottom()),
-                egui::pos2(rect.right(), rect.bottom()),
-            ];
-
-            let stroke = ui.visuals().widgets.noninteractive.fg_stroke;
-            ui.painter().line_segment(points, stroke);
-            response
-        })
-        .response
-}
-
 #[macro_export]
 macro_rules! key {
     ($ui:ident, $k:expr) => {
@@ -170,3 +149,32 @@ macro_rules! key_val {
 pub use key;
 pub use key_val;
 pub use val;
+
+pub fn line(ui: &mut egui::Ui, frame: egui::Frame) -> egui::Response {
+    line_with_size(ui, frame, ui.available_size())
+}
+
+pub fn line_with_size(
+    ui: &mut egui::Ui,
+    frame: egui::Frame,
+    size: impl Into<egui::Vec2>,
+) -> egui::Response {
+    frame
+        .show(ui, |ui| {
+            ui.set_max_height(1.);
+            let available_space = size.into();
+
+            let size = egui::vec2(available_space.x, 0.);
+
+            let (rect, response) = ui.allocate_at_least(size, egui::Sense::hover());
+            let points = [
+                egui::pos2(rect.left(), rect.bottom()),
+                egui::pos2(rect.right(), rect.bottom()),
+            ];
+
+            let stroke = ui.visuals().widgets.noninteractive.fg_stroke;
+            ui.painter().line_segment(points, stroke);
+            response
+        })
+        .response
+}

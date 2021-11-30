@@ -15,6 +15,8 @@ use std::collections::VecDeque;
 use std::time::SystemTime;
 use tokio::sync::mpsc;
 
+pub const SIDE_PANEL_MIN_WIDTH: f32 = 150.;
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Tab {
     Containers,
@@ -133,7 +135,7 @@ impl App {
 
     #[inline]
     fn side_panel_size(&self) -> f32 {
-        (self.current_window.width() / 6.).max(150.)
+        (self.current_window.width() / 6.).max(SIDE_PANEL_MIN_WIDTH)
     }
 
     #[inline]
@@ -152,8 +154,7 @@ impl App {
         };
         egui::SidePanel::left("side_panel")
             .frame(frame)
-            .min_width(100.)
-            .max_width(250.)
+            .min_width(SIDE_PANEL_MIN_WIDTH)
             .max_width(self.side_panel_size())
             .resizable(false)
             .show(ctx, |ui| match self.current_tab {
