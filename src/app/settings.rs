@@ -96,17 +96,24 @@ impl SettingsWindow {
                 }
                 egui::Grid::new("settings_grid").show(ui, |ui| {
                     ui.label("Docker address:");
-                    ui.text_edit_singleline(&mut self.settings.docker_addr)
-                        .on_hover_text(
-                            r#"Can be one of:
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.settings.docker_addr)
+                            .desired_width(f32::INFINITY),
+                    )
+                    .on_hover_text(
+                        r#"Can be one of:
  - unix:///path/to/docker.sock
  - http://some.http.con.com
  - https://some.https.con.com
 "#,
-                        );
+                    );
                     ui.end_row();
 
                     self.fonts_ui(ui);
+                    ui.end_row();
+
+                    ui.scope(|_| {});
+                    ui.allocate_space((150., 0.).into());
                     ui.end_row();
 
                     if ui.button("save").clicked() {
