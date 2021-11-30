@@ -1,4 +1,5 @@
 mod containers;
+mod fonts;
 mod images;
 pub mod settings;
 mod ui;
@@ -91,6 +92,7 @@ impl App {
         self.read_worker_events();
         self.handle_notifications();
         self.handle_popups();
+        self.settings_window.settings.fonts.update_ctx(ctx);
 
         self.top_panel(ctx);
         self.side_panel(ctx);
