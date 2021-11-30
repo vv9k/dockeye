@@ -33,7 +33,47 @@ impl Default for FontSizes {
 }
 
 impl FontSizes {
+    fn fonts_differ(&self, current_fonts: &FontDefinitions) -> bool {
+        for (style, (_, size)) in &current_fonts.family_and_size {
+            let size = *size;
+            match style {
+                TextStyle::Small => {
+                    if self.small != size {
+                        return true;
+                    }
+                }
+                TextStyle::Body => {
+                    if self.body != size {
+                        return true;
+                    }
+                }
+                TextStyle::Button => {
+                    if self.button != size {
+                        return true;
+                    }
+                }
+                TextStyle::Heading => {
+                    if self.heading != size {
+                        return true;
+                    }
+                }
+                TextStyle::Monospace => {
+                    if self.monospace != size {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub fn update_ctx(&self, ctx: &egui::CtxRef) {
+        let current_fonts = ctx.fonts();
+
+        if !self.fonts_differ(current_fonts.definitions()) {
+            return;
+        }
+
         let mut fonts = FontDefinitions::default();
 
         fonts
