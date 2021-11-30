@@ -161,7 +161,7 @@ impl App {
             .resizable(false)
             .show(ctx, |ui| match self.current_tab {
                 Tab::Containers => {
-                    self.containers_scroll(ui);
+                    self.containers_side(ui);
                 }
                 Tab::Images => {
                     self.image_side(ui);
@@ -174,7 +174,7 @@ impl App {
             self.display_notifications_and_errors(ctx);
             match self.current_tab {
                 Tab::Containers => {
-                    egui::ScrollArea::vertical().show(ui, |ui| self.container_details(ui));
+                    egui::ScrollArea::vertical().show(ui, |ui| self.containers_view(ui));
                 }
                 Tab::Images => {
                     egui::ScrollArea::vertical().show(ui, |ui| self.image_view(ui));
@@ -389,6 +389,12 @@ impl App {
                     Ok(()) => {
                         self.clear_all();
                         self.add_notification("Successfully changed Docker uri")
+                    }
+                    Err(e) => self.add_error(e),
+                },
+                EventResponse::ContainerCreate(res) => match res {
+                    Ok(id) => {
+                        self.add_notification(format!("successfully created container {}", id))
                     }
                     Err(e) => self.add_error(e),
                 },

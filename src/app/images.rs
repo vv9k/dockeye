@@ -414,7 +414,7 @@ impl App {
                     self.add_notification("Image name can't be empty");
                 } else {
                     let auth = if !self.images.pull_view.user.is_empty() {
-                        let mut auth = RegistryAuth::builder();
+                        let auth = RegistryAuth::builder();
                         if !self.images.pull_view.password.is_empty() {
                             Some(
                                 auth.username(&self.images.pull_view.user)

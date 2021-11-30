@@ -353,6 +353,14 @@ impl DockerWorker {
                             }
                             EventResponse::DockerUriChange(Ok(()))
                         }
+                        EventRequest::ContainerCreate(opts) => EventResponse::ContainerCreate(
+                            docker
+                                .containers()
+                                .create(&opts)
+                                .await
+                                .map(|c| c.id().to_string())
+                                .context("failed to create a container"),
+                        ),
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

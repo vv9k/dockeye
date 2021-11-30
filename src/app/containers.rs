@@ -7,7 +7,7 @@ use crate::app::{
 use crate::event::EventRequest;
 use crate::worker::RunningContainerStats;
 
-use docker_api::api::{ContainerDetails, ContainerInfo, ContainerStatus};
+use docker_api::api::{ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerStatus};
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
@@ -87,25 +87,80 @@ macro_rules! btn {
             $errors
         );
     };
-    (delete => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
-        btn!(
-            $self,
-            $ui,
-            icon::DELETE,
-            "delete the container",
-            EventRequest::DeleteContainer {
-                id: $container.id.clone()
-            },
-            $errors
-        );
-    };
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+/// Decides which main view is displayed on the central panel
+pub enum CentralView {
+    None,
+    Container,
+    Create,
+}
+
+impl Default for CentralView {
+    fn default() -> Self {
+        CentralView::None
+    }
 }
 
 #[derive(Debug, PartialEq)]
+/// Decides which tab is open when displaying a detailed view of a container
 pub enum ContainerView {
     Details,
     Logs,
     Attach,
+}
+
+#[derive(Default, Debug)]
+pub struct ContainerCreateData {
+    pub image: String,
+    pub command: String,
+    pub name: String,
+    pub working_dir: String,
+    pub user: String,
+    pub tty: bool,
+    pub stdin: bool,
+    pub stderr: bool,
+    pub stdout: bool,
+    pub env: Vec<(String, String)>,
+}
+
+impl ContainerCreateData {
+    pub fn reset(&mut self) {
+        *self = ContainerCreateData::default();
+    }
+
+    pub fn as_opts(&self) -> ContainerCreateOpts {
+        let mut opts = ContainerCreateOpts::builder(&self.image);
+        if !self.command.is_empty() {
+            // #TODO: this should be wiser about arguments
+            opts = opts.cmd(self.command.split_ascii_whitespace());
+        }
+        if !self.name.is_empty() {
+            opts = opts.name(&self.name);
+        }
+        if !self.working_dir.is_empty() {
+            opts = opts.working_dir(&self.working_dir);
+        }
+        if !self.user.is_empty() {
+            opts = opts.user(&self.user);
+        }
+        opts = opts.tty(self.tty);
+        opts = opts.attach_stdin(self.stdin);
+        opts = opts.attach_stderr(self.stderr);
+        opts = opts.attach_stdout(self.stdout);
+
+        if !self.env.is_empty() {
+            let env = self
+                .env
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>();
+            opts = opts.env(env);
+        }
+
+        opts.build()
+    }
 }
 
 #[derive(Debug)]
@@ -114,8 +169,10 @@ pub struct ContainersTab {
     pub current_container: Option<Box<ContainerDetails>>,
     pub current_stats: Option<Box<RunningContainerStats>>,
     pub container_view: ContainerView,
+    pub central_view: CentralView,
     pub current_logs: Option<String>,
     pub logs_page: usize,
+    pub create_data: ContainerCreateData,
 }
 
 impl Default for ContainersTab {
@@ -125,8 +182,10 @@ impl Default for ContainersTab {
             current_container: None,
             current_stats: None,
             container_view: ContainerView::Details,
+            central_view: CentralView::default(),
             current_logs: None,
             logs_page: 0,
+            create_data: ContainerCreateData::default(),
         }
     }
 }
@@ -146,7 +205,37 @@ impl ContainersTab {
 }
 
 impl App {
-    pub fn containers_scroll(&mut self, ui: &mut egui::Ui) {
+    pub fn containers_side(&mut self, ui: &mut egui::Ui) {
+        ui.vertical(|ui| {
+            self.containers_menu(ui);
+            self.containers_scroll(ui);
+        });
+    }
+
+    pub fn containers_view(&mut self, ui: &mut egui::Ui) {
+        match self.containers.central_view {
+            CentralView::None => {}
+            CentralView::Container => self.container_details(ui),
+            CentralView::Create => self.container_create(ui),
+        }
+    }
+
+    fn containers_menu(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("containers_menu").show(ui, |ui| {
+            ui.selectable_value(
+                &mut self.containers.central_view,
+                CentralView::None,
+                "main view",
+            );
+            ui.selectable_value(
+                &mut self.containers.central_view,
+                CentralView::Create,
+                "create",
+            );
+        });
+    }
+
+    fn containers_scroll(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.wrap_text();
             egui::Grid::new("side_panel")
@@ -155,6 +244,7 @@ impl App {
                 .show(ui, |ui| {
                     let mut errors = vec![];
                     let mut popups = vec![];
+                    let mut central_view = self.containers.central_view;
                     for container in &self.containers.containers {
                         let color = if &container.state == "running" {
                             egui::Color32::GREEN
@@ -168,13 +258,14 @@ impl App {
                             .heading()
                             .strong();
                         let frame_color = ui.visuals().widgets.open.bg_fill;
-                        let frame = if self
+                        let selected = self
                             .containers
                             .current_container
                             .as_ref()
-                            .map(|c| c.id == container.id)
-                            .unwrap_or_default()
-                        {
+                            .map(|c| c.id == container.id && central_view == CentralView::Container)
+                            .unwrap_or_default();
+
+                        let frame = if selected {
                             egui::Frame::none().fill(frame_color).margin((0., 0.))
                         } else {
                             egui::Frame::none().margin((0., 0.))
@@ -229,7 +320,20 @@ impl App {
 
                                             ui.add_space(5.);
                                             ui.scope(|ui| {
-                                                btn!(info => self, ui, container, errors);
+                                                if ui
+                                                    .button(icon::INFO)
+                                                    .on_hover_text("Inspect this container")
+                                                    .clicked()
+                                                {
+                                                    central_view = CentralView::Container;
+                                                    if let Err(e) = self.send_event(
+                                                        EventRequest::ContainerTraceStart {
+                                                            id: container.id.clone(),
+                                                        },
+                                                    ) {
+                                                        errors.push(Box::new(e));
+                                                    };
+                                                }
                                                 if ui
                                                     .button(icon::DELETE)
                                                     .on_hover_text("Delete this container")
@@ -266,12 +370,82 @@ impl App {
                         ui.end_row();
                     }
                     errors.into_iter().for_each(|error| self.add_error(error));
+                    self.containers.central_view = central_view;
                     self.popups.extend(popups);
                 });
         });
     }
 
-    pub fn container_details(&mut self, ui: &mut egui::Ui) {
+    fn container_create(&mut self, ui: &mut egui::Ui) {
+        Grid::new("container_create").show(ui, |ui| {
+            ui.scope(|_| {});
+            ui.allocate_space((self.side_panel_size(), 0.).into());
+            ui.end_row();
+            key!(ui, "Image:");
+            ui.text_edit_singleline(&mut self.containers.create_data.image);
+            ui.end_row();
+            key!(ui, "Command:");
+            ui.text_edit_singleline(&mut self.containers.create_data.command);
+            ui.end_row();
+            key!(ui, "Name:");
+            ui.text_edit_singleline(&mut self.containers.create_data.name);
+            ui.end_row();
+            key!(ui, "Working directory:");
+            ui.text_edit_singleline(&mut self.containers.create_data.working_dir);
+            ui.end_row();
+            key!(ui, "User:");
+            ui.text_edit_singleline(&mut self.containers.create_data.user);
+            ui.end_row();
+            ui.checkbox(&mut self.containers.create_data.tty, "TTY");
+            ui.end_row();
+            ui.checkbox(&mut self.containers.create_data.stdin, "Standard input");
+            ui.end_row();
+            ui.checkbox(&mut self.containers.create_data.stdout, "Standard output");
+            ui.end_row();
+            ui.checkbox(&mut self.containers.create_data.stderr, "Standard error");
+            ui.end_row();
+
+            ui.end_row();
+
+            key!(ui, "Environment:");
+            if ui.button(icon::ADD).clicked() {
+                self.containers
+                    .create_data
+                    .env
+                    .push((String::new(), String::new()));
+            }
+            ui.end_row();
+            ui.scope(|_| {});
+            Grid::new("create_env").show(ui, |ui| {
+                for (key, val) in &mut self.containers.create_data.env {
+                    key!(ui, "Key:");
+                    ui.add(egui::TextEdit::singleline(key).desired_width(f32::INFINITY));
+                    key!(ui, "Value:");
+                    ui.add(egui::TextEdit::singleline(val).desired_width(f32::INFINITY));
+                    ui.end_row();
+                }
+            });
+            ui.end_row();
+
+            ui.scope(|ui| {
+                if ui.button("create").clicked() {
+                    if self.containers.create_data.image.is_empty() {
+                        self.add_error("Image name is required to create a container");
+                    } else {
+                        self.send_event_notify(EventRequest::ContainerCreate(
+                            self.containers.create_data.as_opts(),
+                        ));
+                    }
+                }
+                ui.add_space(5.);
+                if ui.button("reset").clicked() {
+                    self.containers.create_data.reset();
+                }
+            });
+        });
+    }
+
+    fn container_details(&mut self, ui: &mut egui::Ui) {
         let mut errors = vec![];
         if let Some(container) = &self.containers.current_container {
             let color = if is_running(container) {

@@ -1,8 +1,9 @@
 use crate::worker::{Logs, RunningContainerStats};
 
 use docker_api::api::{
-    ContainerDetails, ContainerInfo, ContainerListOpts, DeleteStatus, DistributionInspectInfo,
-    History, ImageBuildChunk, ImageDetails, ImageInfo, ImageListOpts, RegistryAuth,
+    ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerListOpts, DeleteStatus,
+    DistributionInspectInfo, History, ImageBuildChunk, ImageDetails, ImageInfo, ImageListOpts,
+    RegistryAuth,
 };
 
 #[derive(Debug)]
@@ -55,6 +56,7 @@ pub enum EventRequest {
     DockerUriChange {
         uri: String,
     },
+    ContainerCreate(ContainerCreateOpts),
 }
 
 #[derive(Debug)]
@@ -76,4 +78,5 @@ pub enum EventResponse {
     PullImage(anyhow::Result<String>),
     PullImageChunks(Vec<ImageBuildChunk>),
     DockerUriChange(anyhow::Result<()>),
+    ContainerCreate(anyhow::Result<String>),
 }

@@ -52,6 +52,7 @@ pub mod icon {
     pub const STOP: &str = "\u{23F9}";
     pub const SETTINGS: &str = "\u{2699}";
     pub const SAVE: &str = "\u{1F4BE}";
+    pub const ADD: &str = "\u{2795}";
 }
 
 pub fn light_visuals() -> Visuals {
