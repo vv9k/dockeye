@@ -37,7 +37,7 @@ pub struct PullView {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ImagesView {
+pub enum CentralView {
     Image,
     Pull,
     None,
@@ -48,7 +48,7 @@ pub struct ImagesTab {
     pub images: Vec<ImageInfo>,
     pub current_image: Option<Box<ImageInspectInfo>>,
     pub current_pull_chunks: Option<Vec<ImageBuildChunk>>,
-    pub current_image_view: ImagesView,
+    pub central_view: CentralView,
     pub pull_view: PullView,
 }
 impl Default for ImagesTab {
@@ -57,7 +57,7 @@ impl Default for ImagesTab {
             images: vec![],
             current_image: None,
             current_pull_chunks: None,
-            current_image_view: ImagesView::None,
+            central_view: CentralView::None,
             pull_view: PullView::default(),
         }
     }
@@ -67,43 +67,39 @@ impl ImagesTab {
         self.images.clear();
         self.current_image = None;
         self.current_pull_chunks = None;
-        self.current_image_view = ImagesView::None;
+        self.central_view = CentralView::None;
     }
 }
 
 impl App {
-    pub fn image_view(&mut self, ui: &mut egui::Ui) {
-        match self.images.current_image_view {
-            ImagesView::Image => self.image_details(ui),
-            ImagesView::Pull => self.image_pull(ui),
-            ImagesView::None => {}
+    pub fn images_view(&mut self, ui: &mut egui::Ui) {
+        match self.images.central_view {
+            CentralView::Image => self.image_details(ui),
+            CentralView::Pull => self.images_pull(ui),
+            CentralView::None => {}
         }
     }
 
-    pub fn image_side(&mut self, ui: &mut egui::Ui) {
+    pub fn images_side(&mut self, ui: &mut egui::Ui) {
         ui.vertical(|ui| {
-            self.image_menu(ui);
-            self.image_scroll(ui);
+            self.images_menu(ui);
+            self.images_scroll(ui);
         });
     }
 
-    fn image_menu(&mut self, ui: &mut egui::Ui) {
+    fn images_menu(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("image_menu").show(ui, |ui| {
             ui.selectable_value(
-                &mut self.images.current_image_view,
-                ImagesView::None,
+                &mut self.images.central_view,
+                CentralView::None,
                 "main view",
             );
-            ui.selectable_value(
-                &mut self.images.current_image_view,
-                ImagesView::Pull,
-                "pull",
-            );
+            ui.selectable_value(&mut self.images.central_view, CentralView::Pull, "pull");
         });
     }
 
-    fn image_scroll(&mut self, ui: &mut egui::Ui) {
-        let mut view = self.images.current_image_view;
+    fn images_scroll(&mut self, ui: &mut egui::Ui) {
+        let mut view = self.images.central_view;
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.wrap_text();
             egui::Grid::new("side_panel")
@@ -120,7 +116,7 @@ impl App {
                             .as_ref()
                             .map(|i| {
                                 i.details.id == image.id
-                                    && self.images.current_image_view == ImagesView::Image
+                                    && self.images.central_view == CentralView::Image
                             })
                             .unwrap_or_default();
 
@@ -186,7 +182,7 @@ impl App {
                                                 {
                                                     errors.push(e);
                                                 };
-                                                view = ImagesView::Image;
+                                                view = CentralView::Image;
                                             }
                                             if ui
                                                 .button(icon::DELETE)
@@ -250,7 +246,7 @@ impl App {
                     self.popups.extend(popups);
                 });
         });
-        self.images.current_image_view = view;
+        self.images.central_view = view;
     }
 
     fn image_details(&self, ui: &mut egui::Ui) {
@@ -382,7 +378,7 @@ impl App {
         }
     }
 
-    fn image_pull(&mut self, ui: &mut egui::Ui) {
+    fn images_pull(&mut self, ui: &mut egui::Ui) {
         ui.add(
             Label::new("Pull an image from a registry")
                 .heading()

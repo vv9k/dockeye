@@ -164,7 +164,7 @@ impl App {
                     self.containers_side(ui);
                 }
                 Tab::Images => {
-                    self.image_side(ui);
+                    self.images_side(ui);
                 }
             });
     }
@@ -177,7 +177,7 @@ impl App {
                     egui::ScrollArea::vertical().show(ui, |ui| self.containers_view(ui));
                 }
                 Tab::Images => {
-                    egui::ScrollArea::vertical().show(ui, |ui| self.image_view(ui));
+                    egui::ScrollArea::vertical().show(ui, |ui| self.images_view(ui));
                 }
             }
 
