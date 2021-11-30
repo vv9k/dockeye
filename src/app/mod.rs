@@ -4,7 +4,7 @@ mod images;
 pub mod settings;
 mod ui;
 
-use crate::event::{EventRequest, EventResponse};
+use crate::event::{EventRequest, EventResponse, HostInspectInfo};
 use containers::ContainersTab;
 use images::ImagesTab;
 use settings::{Settings, SettingsWindow};
@@ -20,6 +20,7 @@ pub const SIDE_PANEL_MIN_WIDTH: f32 = 150.;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Tab {
+    Host,
     Containers,
     Images,
 }
@@ -27,6 +28,7 @@ pub enum Tab {
 impl AsRef<str> for Tab {
     fn as_ref(&self) -> &str {
         match &self {
+            Tab::Host => "Host",
             Tab::Containers => "Containers",
             Tab::Images => "Images",
         }
@@ -35,7 +37,7 @@ impl AsRef<str> for Tab {
 
 impl Default for Tab {
     fn default() -> Self {
-        Self::Containers
+        Self::Host
     }
 }
 
@@ -55,6 +57,7 @@ pub struct App {
 
     settings_window: SettingsWindow,
     popups: VecDeque<ui::ActionPopup>,
+    host_info: Option<HostInspectInfo>,
 }
 
 impl epi::App for App {
@@ -116,7 +119,7 @@ impl App {
         egui::TopBottomPanel::top("top_panel")
             .frame(frame)
             .show(ctx, |ui| {
-                let tabs = [Tab::Containers, Tab::Images];
+                let tabs = [Tab::Host, Tab::Containers, Tab::Images];
 
                 ui.horizontal(|ui| {
                     egui::Grid::new("tab_grid").show(ui, |ui| {
@@ -160,6 +163,7 @@ impl App {
             .max_width(self.side_panel_size())
             .resizable(false)
             .show(ctx, |ui| match self.current_tab {
+                Tab::Host => {}
                 Tab::Containers => {
                     self.containers_side(ui);
                 }
@@ -173,6 +177,9 @@ impl App {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.display_notifications_and_errors(ctx);
             match self.current_tab {
+                Tab::Host => {
+                    self.host_view(ui);
+                }
                 Tab::Containers => {
                     egui::ScrollArea::vertical().show(ui, |ui| self.containers_view(ui));
                 }
@@ -220,6 +227,19 @@ impl App {
             popup.display(ctx);
         }
     }
+
+    fn host_view(&mut self, ui: &mut egui::Ui) {
+        if let Some(host) = &self.host_info {
+            egui::Grid::new("host_grid").show(ui, |ui| {
+                ui::key_val!(ui, "Server:", &host.ping_info.server);
+                ui::key_val!(ui, "Version:", &host.version.version);
+                ui::key_val!(ui, "Operating System:", &host.version.os);
+                ui::key_val!(ui, "Architecture:", &host.version.arch);
+                ui::key_val!(ui, "Kernel version:", &host.version.kernel_version);
+                ui::key_val!(ui, "Build time:", host.version.build_time.to_rfc2822());
+            });
+        }
+    }
 }
 
 impl App {
@@ -247,6 +267,7 @@ impl App {
                 ..Default::default()
             },
             popups: VecDeque::new(),
+            host_info: None,
         }
     }
 
@@ -271,6 +292,9 @@ impl App {
     }
 
     fn send_update_request(&mut self) {
+        if self.current_tab == Tab::Host {
+            self.send_event_notify(EventRequest::HostInspect);
+        }
         self.send_event_notify(EventRequest::ListContainers(Some(
             ContainerListOpts::builder().all(true).build(),
         )));
@@ -395,6 +419,12 @@ impl App {
                 EventResponse::ContainerCreate(res) => match res {
                     Ok(id) => {
                         self.add_notification(format!("successfully created container {}", id))
+                    }
+                    Err(e) => self.add_error(e),
+                },
+                EventResponse::HostInspect(res) => match res {
+                    Ok(data) => {
+                        self.host_info = Some(data);
                     }
                     Err(e) => self.add_error(e),
                 },

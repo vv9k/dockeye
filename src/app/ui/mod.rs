@@ -114,7 +114,7 @@ pub fn dark_visuals() -> Visuals {
 #[macro_export]
 macro_rules! key {
     ($ui:ident, $k:expr) => {
-        $ui.add(Label::new($k).strong());
+        $ui.add(egui::Label::new($k).strong());
     };
 }
 
@@ -122,7 +122,7 @@ macro_rules! key {
 macro_rules! val {
     ($ui:ident, $v:expr) => {
         if $ui
-            .add(Label::new($v).monospace().sense(egui::Sense {
+            .add(egui::Label::new($v).monospace().sense(egui::Sense {
                 click: true,
                 focusable: true,
                 drag: false,
@@ -141,8 +141,8 @@ macro_rules! val {
 #[macro_export]
 macro_rules! key_val {
     ($ui:ident, $k:expr, $v:expr) => {
-        key!($ui, $k);
-        val!($ui, $v);
+        crate::app::ui::key!($ui, $k);
+        crate::app::ui::val!($ui, $v);
         $ui.end_row();
     };
 }

@@ -3,7 +3,7 @@ mod image_pull;
 mod logs;
 mod stats;
 
-use crate::event::{EventRequest, EventResponse, ImageInspectInfo};
+use crate::event::{EventRequest, EventResponse, HostInspectInfo, ImageInspectInfo};
 pub use image_export::{ImageExportEvent, ImageExportWorker};
 pub use image_pull::{ImagePullEvent, ImagePullWorker};
 pub use logs::{LogWorkerEvent, Logs, LogsWorker};
@@ -361,6 +361,37 @@ impl DockerWorker {
                                 .map(|c| c.id().to_string())
                                 .context("failed to create a container"),
                         ),
+                        EventRequest::HostInspect => {
+                            match docker
+                                .version()
+                                .await
+                                .context("checking docker version failed")
+                            {
+                                Ok(version) => {
+                                    match docker.info().await.context("checking docker info failed")
+                                    {
+                                        Ok(info) => {
+                                            match docker
+                                                .ping()
+                                                .await
+                                                .context("checking docker ping info failed")
+                                            {
+                                                Ok(ping_info) => EventResponse::HostInspect(Ok(
+                                                    HostInspectInfo {
+                                                        version,
+                                                        info,
+                                                        ping_info,
+                                                    },
+                                                )),
+                                                Err(e) => EventResponse::HostInspect(Err(e)),
+                                            }
+                                        }
+                                        Err(e) => EventResponse::HostInspect(Err(e)),
+                                    }
+                                }
+                                Err(e) => EventResponse::HostInspect(Err(e)),
+                            }
+                        }
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

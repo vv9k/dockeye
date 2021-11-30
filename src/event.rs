@@ -3,8 +3,15 @@ use crate::worker::{Logs, RunningContainerStats};
 use docker_api::api::{
     ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerListOpts, DeleteStatus,
     DistributionInspectInfo, History, ImageBuildChunk, ImageDetails, ImageInfo, ImageListOpts,
-    RegistryAuth,
+    Info, PingInfo, RegistryAuth, Version,
 };
+
+#[derive(Debug)]
+pub struct HostInspectInfo {
+    pub version: Version,
+    pub info: Info,
+    pub ping_info: PingInfo,
+}
 
 #[derive(Debug)]
 pub struct ImageInspectInfo {
@@ -57,6 +64,7 @@ pub enum EventRequest {
         uri: String,
     },
     ContainerCreate(ContainerCreateOpts),
+    HostInspect,
 }
 
 #[derive(Debug)]
@@ -79,4 +87,5 @@ pub enum EventResponse {
     PullImageChunks(Vec<ImageBuildChunk>),
     DockerUriChange(anyhow::Result<()>),
     ContainerCreate(anyhow::Result<String>),
+    HostInspect(anyhow::Result<HostInspectInfo>),
 }
