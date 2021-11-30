@@ -26,7 +26,10 @@ fn main() -> Result<()> {
         .unwrap_or_default();
 
     let app = dockeye::App::new(settings, tx_req, rx_rsp);
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        initial_window_size: Some((1280., 720.).into()),
+        ..Default::default()
+    };
     let uri = app.docker_uri().to_string();
 
     DockerWorker::spawn(rt, uri, rx_req, tx_rsp);
