@@ -1,4 +1,5 @@
 mod containers;
+mod fonts;
 mod images;
 pub mod settings;
 mod ui;
