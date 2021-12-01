@@ -417,6 +417,12 @@ impl App {
                     }
                     Err(e) => self.add_error(e),
                 },
+                EventResponse::SystemDataUsage(res) => match res {
+                    Ok(usage) => {
+                        self.system.data_usage = Some(usage);
+                    }
+                    Err(e) => self.add_error(e),
+                },
             }
         }
     }

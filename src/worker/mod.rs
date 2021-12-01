@@ -379,6 +379,16 @@ impl DockerWorker {
                                 Err(e) => EventResponse::SystemInspect(Err(e)),
                             }
                         }
+                        EventRequest::SystemDataUsage => {
+                            match docker
+                                .data_usage()
+                                .await
+                                .context("checking docker data usage failed")
+                            {
+                                Ok(usage) => EventResponse::SystemDataUsage(Ok(Box::new(usage))),
+                                Err(e) => EventResponse::SystemDataUsage(Err(e)),
+                            }
+                        }
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

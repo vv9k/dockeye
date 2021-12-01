@@ -2,6 +2,7 @@ use crate::app::ui::{key, key_val, val};
 use crate::app::App;
 use crate::event::SystemInspectInfo;
 
+use docker_api::api::DataUsage;
 use egui::{CollapsingHeader, Grid};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -19,6 +20,7 @@ impl Default for CentralView {
 #[derive(Default, Debug)]
 pub struct SystemTab {
     pub system_info: Option<Box<SystemInspectInfo>>,
+    pub data_usage: Option<Box<DataUsage>>,
     pub central_view: CentralView,
 }
 
