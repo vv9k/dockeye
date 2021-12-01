@@ -282,7 +282,12 @@ impl App {
 
     fn send_update_request(&mut self) {
         if self.current_tab == Tab::System {
-            self.send_event_notify(EventRequest::SystemInspect);
+            match self.system.central_view {
+                system::CentralView::Home => self.send_event_notify(EventRequest::SystemInspect),
+                system::CentralView::DataUsage => {
+                    self.send_event_notify(EventRequest::SystemDataUsage)
+                }
+            }
         }
         self.send_event_notify(EventRequest::ListContainers(Some(
             ContainerListOpts::builder().all(true).build(),

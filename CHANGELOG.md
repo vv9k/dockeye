@@ -8,3 +8,4 @@
 - A lot of ui fixes and tweaks, more readable text
 - Add configurable font sizes to the settings window
 - Add a default `Host` tab that displays information about the docker host
+- Add data usage tab with containers, images and build cache data usage stats

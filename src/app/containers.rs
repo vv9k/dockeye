@@ -12,6 +12,23 @@ use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
 
+pub fn color_for_state(state: &str) -> egui::Color32 {
+    if state == "running" {
+        egui::Color32::GREEN
+    } else if state == "paused" {
+        egui::Color32::YELLOW
+    } else {
+        egui::Color32::RED
+    }
+}
+
+pub fn state_icon(color: egui::Color32) -> Label {
+    Label::new(icon::PACKAGE)
+        .text_color(color)
+        .heading()
+        .strong()
+}
+
 pub fn is_running(container: &ContainerDetails) -> bool {
     matches!(container.state.status, ContainerStatus::Running)
 }
@@ -246,17 +263,8 @@ impl App {
                     let mut popups = vec![];
                     let mut central_view = self.containers.central_view;
                     for container in &self.containers.containers {
-                        let color = if &container.state == "running" {
-                            egui::Color32::GREEN
-                        } else if &container.state == "paused" {
-                            egui::Color32::YELLOW
-                        } else {
-                            egui::Color32::RED
-                        };
-                        let dot = egui::Label::new(icon::PACKAGE)
-                            .text_color(color)
-                            .heading()
-                            .strong();
+                        let color = color_for_state(&container.state);
+                        let dot = state_icon(color);
                         let frame_color = ui.visuals().widgets.open.bg_fill;
                         let selected = self
                             .containers
@@ -456,12 +464,7 @@ impl App {
                 egui::Color32::RED
             };
             ui.horizontal(|ui| {
-                ui.add(
-                    egui::Label::new(icon::PACKAGE)
-                        .text_color(color)
-                        .heading()
-                        .strong(),
-                );
+                ui.add(state_icon(color));
                 ui.add(
                     Label::new(container.name.trim_start_matches('/'))
                         .heading()

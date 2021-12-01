@@ -11,8 +11,16 @@ use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth};
 use anyhow::Error;
 use egui::{Grid, Label, TextEdit};
 
-fn trim_id(id: &str) -> &str {
-    &id.trim_start_matches("sha256:")[..12]
+pub fn trim_id(id: &str) -> &str {
+    if id.len() > 12 {
+        &id.trim_start_matches("sha256:")[..12]
+    } else {
+        id
+    }
+}
+
+pub fn icon() -> Label {
+    Label::new(icon::SCROLL).heading().strong()
 }
 
 fn name(id: &str, tags: Option<&Vec<String>>) -> String {
@@ -138,7 +146,7 @@ impl App {
 
                                         ui.add_space(5.);
                                         ui.scope(|ui| {
-                                            ui.add(Label::new(icon::SCROLL).heading().strong());
+                                            ui.add(icon());
                                             ui.add(
                                                 Label::new(&image_name)
                                                     .heading()
