@@ -3,14 +3,13 @@ use crate::worker::{Logs, RunningContainerStats};
 use docker_api::api::{
     ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerListOpts, DeleteStatus,
     DistributionInspectInfo, History, ImageBuildChunk, ImageDetails, ImageInfo, ImageListOpts,
-    Info, PingInfo, RegistryAuth, Version,
+    Info, RegistryAuth, Version,
 };
 
 #[derive(Debug)]
 pub struct SystemInspectInfo {
     pub version: Version,
     pub info: Info,
-    pub ping_info: PingInfo,
 }
 
 #[derive(Debug)]
@@ -87,5 +86,5 @@ pub enum EventResponse {
     PullImageChunks(Vec<ImageBuildChunk>),
     DockerUriChange(anyhow::Result<()>),
     ContainerCreate(anyhow::Result<String>),
-    SystemInspect(anyhow::Result<SystemInspectInfo>),
+    SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
 }

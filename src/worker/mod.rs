@@ -370,22 +370,9 @@ impl DockerWorker {
                                 Ok(version) => {
                                     match docker.info().await.context("checking docker info failed")
                                     {
-                                        Ok(info) => {
-                                            match docker
-                                                .ping()
-                                                .await
-                                                .context("checking docker ping info failed")
-                                            {
-                                                Ok(ping_info) => EventResponse::SystemInspect(Ok(
-                                                    SystemInspectInfo {
-                                                        version,
-                                                        info,
-                                                        ping_info,
-                                                    },
-                                                )),
-                                                Err(e) => EventResponse::SystemInspect(Err(e)),
-                                            }
-                                        }
+                                        Ok(info) => EventResponse::SystemInspect(Ok(Box::new(
+                                            SystemInspectInfo { version, info },
+                                        ))),
                                         Err(e) => EventResponse::SystemInspect(Err(e)),
                                     }
                                 }

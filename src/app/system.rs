@@ -18,7 +18,7 @@ impl Default for CentralView {
 
 #[derive(Default, Debug)]
 pub struct SystemTab {
-    pub system_info: Option<SystemInspectInfo>,
+    pub system_info: Option<Box<SystemInspectInfo>>,
     pub central_view: CentralView,
 }
 
@@ -52,7 +52,6 @@ impl App {
     fn system_details(&mut self, ui: &mut egui::Ui) {
         if let Some(system) = &self.system.system_info {
             Grid::new("basic_info_grid").show(ui, |ui| {
-                key_val!(ui, "Server:", &system.ping_info.server);
                 key_val!(ui, "Version:", &system.version.version);
                 key_val!(ui, "API version:", &system.version.api_version);
                 key_val!(ui, "OS type:", &system.info.os_type);
