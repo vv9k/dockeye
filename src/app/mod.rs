@@ -73,6 +73,12 @@ impl epi::App for App {
         _frame: &mut epi::Frame<'_>,
         _storage: Option<&dyn epi::Storage>,
     ) {
+        self.send_event_notify(EventRequest::ListContainers(Some(
+            ContainerListOpts::builder().all(true).build(),
+        )));
+        self.send_event_notify(EventRequest::ListImages(None));
+        self.send_event_notify(EventRequest::SystemInspect);
+        self.send_event_notify(EventRequest::SystemDataUsage);
     }
 
     fn save(&mut self, _storage: &mut dyn epi::Storage) {
@@ -93,7 +99,7 @@ impl App {
             ctx.set_visuals(ui::light_visuals());
         }
         self.current_window = ctx.available_rect();
-        self.handle_data_update();
+        self.send_update_request();
         self.read_worker_events();
         self.handle_notifications();
         self.handle_popups();
@@ -281,35 +287,47 @@ impl App {
     }
 
     fn send_update_request(&mut self) {
-        if self.current_tab == Tab::System {
-            match self.system.central_view {
-                system::CentralView::Home => self.send_event_notify(EventRequest::SystemInspect),
-                system::CentralView::DataUsage => {
-                    self.send_event_notify(EventRequest::SystemDataUsage)
+        let elapsed = self.update_time.elapsed().unwrap_or_default().as_millis();
+        match self.current_tab {
+            Tab::Containers if elapsed > 1000 => {
+                self.send_event_notify(EventRequest::ListContainers(Some(
+                    ContainerListOpts::builder().all(true).build(),
+                )));
+                if self.containers.current_container.is_some() {
+                    self.send_event_notify(EventRequest::ContainerDetails);
+                    self.send_event_notify(EventRequest::ContainerLogs);
+                    if self
+                        .containers
+                        .current_container
+                        .as_ref()
+                        .map(|c| containers::is_running(c))
+                        .unwrap_or_default()
+                    {
+                        self.send_event_notify(EventRequest::ContainerStats);
+                    }
                 }
+                self.update_time = SystemTime::now();
             }
-        }
-        self.send_event_notify(EventRequest::ListContainers(Some(
-            ContainerListOpts::builder().all(true).build(),
-        )));
-        self.send_event_notify(EventRequest::ListImages(None));
-        if self.images.pull_view.in_progress {
-            self.send_event_notify(EventRequest::PullImageChunks);
-        }
-        if self.containers.current_container.is_some() {
-            self.send_event_notify(EventRequest::ContainerDetails);
-            self.send_event_notify(EventRequest::ContainerLogs);
-            if self
-                .containers
-                .current_container
-                .as_ref()
-                .map(|c| containers::is_running(c))
-                .unwrap_or_default()
-            {
-                self.send_event_notify(EventRequest::ContainerStats);
+            Tab::Images if elapsed > 1000 => {
+                self.send_event_notify(EventRequest::ListImages(None));
+                if self.images.pull_view.in_progress {
+                    self.send_event_notify(EventRequest::PullImageChunks);
+                }
+                self.update_time = SystemTime::now();
             }
+            Tab::System if elapsed > 2000 => {
+                match self.system.central_view {
+                    system::CentralView::Home => {
+                        self.send_event_notify(EventRequest::SystemInspect)
+                    }
+                    system::CentralView::DataUsage => {
+                        self.send_event_notify(EventRequest::SystemDataUsage)
+                    }
+                }
+                self.update_time = SystemTime::now();
+            }
+            _ => {}
         }
-        self.update_time = SystemTime::now();
     }
 
     fn read_worker_events(&mut self) {
@@ -458,12 +476,6 @@ impl App {
             } else {
                 break;
             }
-        }
-    }
-
-    fn handle_data_update(&mut self) {
-        if self.update_time.elapsed().unwrap_or_default().as_millis() > 1000 {
-            self.send_update_request();
         }
     }
 
