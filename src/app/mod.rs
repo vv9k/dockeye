@@ -2,6 +2,7 @@ mod containers;
 mod fonts;
 mod images;
 pub mod settings;
+mod system;
 mod ui;
 
 use crate::event::{EventRequest, EventResponse, SystemInspectInfo};
@@ -225,19 +226,6 @@ impl App {
     fn display_popups(&mut self, ctx: &egui::CtxRef) {
         for popup in &mut self.popups {
             popup.display(ctx);
-        }
-    }
-
-    fn system_view(&mut self, ui: &mut egui::Ui) {
-        if let Some(system) = &self.system_info {
-            egui::Grid::new("system_info_grid").show(ui, |ui| {
-                ui::key_val!(ui, "Server:", &system.ping_info.server);
-                ui::key_val!(ui, "Version:", &system.version.version);
-                ui::key_val!(ui, "Operating System:", &system.version.os);
-                ui::key_val!(ui, "Architecture:", &system.version.arch);
-                ui::key_val!(ui, "Kernel version:", &system.version.kernel_version);
-                ui::key_val!(ui, "Build time:", system.version.build_time.to_rfc2822());
-            });
         }
     }
 }
