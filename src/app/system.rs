@@ -1,11 +1,56 @@
 use crate::app::ui::{key, key_val, val};
 use crate::app::App;
+use crate::event::SystemInspectInfo;
 
 use egui::{CollapsingHeader, Grid};
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum CentralView {
+    Home,
+    DataUsage,
+}
+
+impl Default for CentralView {
+    fn default() -> Self {
+        CentralView::Home
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct SystemTab {
+    pub system_info: Option<SystemInspectInfo>,
+    pub central_view: CentralView,
+}
+
 impl App {
     pub fn system_view(&mut self, ui: &mut egui::Ui) {
-        if let Some(system) = &self.system_info {
+        match self.system.central_view {
+            CentralView::Home => self.system_details(ui),
+            CentralView::DataUsage => self.system_data_usage(ui),
+        }
+    }
+
+    pub fn system_side(&mut self, ui: &mut egui::Ui) {
+        self.system_menu(ui);
+    }
+
+    fn system_menu(&mut self, ui: &mut egui::Ui) {
+        Grid::new("system_menu").show(ui, |ui| {
+            ui.selectable_value(&mut self.system.central_view, CentralView::Home, "home");
+            ui.selectable_value(
+                &mut self.system.central_view,
+                CentralView::DataUsage,
+                "data usage",
+            );
+        });
+    }
+
+    fn system_data_usage(&mut self, ui: &mut egui::Ui) {
+        ui.label("TODO!");
+    }
+
+    fn system_details(&mut self, ui: &mut egui::Ui) {
+        if let Some(system) = &self.system.system_info {
             Grid::new("basic_info_grid").show(ui, |ui| {
                 key_val!(ui, "Server:", &system.ping_info.server);
                 key_val!(ui, "Version:", &system.version.version);
@@ -57,21 +102,19 @@ impl App {
                             key_val!(ui, "License:", &license);
                         }
                         if !system.info.security_options.is_empty() {
-                            if !system.info.labels.is_empty() {
-                                key!(ui, "Security options:");
-                                ui.end_row();
-                                ui.label("          ");
-                                Grid::new("sec_opts_grid").show(ui, |ui| {
-                                    let mut opts =
-                                        system.info.security_options.iter().collect::<Vec<_>>();
-                                    opts.sort();
-                                    for opt in opts {
-                                        val!(ui, &opt);
-                                        ui.end_row();
-                                    }
-                                });
-                                ui.end_row();
-                            }
+                            key!(ui, "Security options:");
+                            ui.end_row();
+                            ui.label("          ");
+                            Grid::new("sec_opts_grid").show(ui, |ui| {
+                                let mut opts =
+                                    system.info.security_options.iter().collect::<Vec<_>>();
+                                opts.sort();
+                                for opt in opts {
+                                    val!(ui, &opt);
+                                    ui.end_row();
+                                }
+                            });
+                            ui.end_row();
                         }
                     });
                     CollapsingHeader::new("CPU")

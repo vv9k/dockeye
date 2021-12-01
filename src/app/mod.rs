@@ -5,10 +5,11 @@ pub mod settings;
 mod system;
 mod ui;
 
-use crate::event::{EventRequest, EventResponse, SystemInspectInfo};
+use crate::event::{EventRequest, EventResponse};
 use containers::ContainersTab;
 use images::ImagesTab;
 use settings::{Settings, SettingsWindow};
+use system::SystemTab;
 
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
@@ -55,10 +56,10 @@ pub struct App {
     notifications: VecDeque<(SystemTime, String)>,
     containers: ContainersTab,
     images: ImagesTab,
+    system: SystemTab,
 
     settings_window: SettingsWindow,
     popups: VecDeque<ui::ActionPopup>,
-    system_info: Option<SystemInspectInfo>,
 }
 
 impl epi::App for App {
@@ -164,7 +165,7 @@ impl App {
             .max_width(self.side_panel_size())
             .resizable(false)
             .show(ctx, |ui| match self.current_tab {
-                Tab::System => {}
+                Tab::System => self.system_side(ui),
                 Tab::Containers => {
                     self.containers_side(ui);
                 }
@@ -249,13 +250,13 @@ impl App {
             notifications: VecDeque::new(),
             containers: ContainersTab::default(),
             images: ImagesTab::default(),
+            system: SystemTab::default(),
 
             settings_window: SettingsWindow {
                 settings,
                 ..Default::default()
             },
             popups: VecDeque::new(),
-            system_info: None,
         }
     }
 
@@ -412,7 +413,7 @@ impl App {
                 },
                 EventResponse::SystemInspect(res) => match res {
                     Ok(data) => {
-                        self.system_info = Some(data);
+                        self.system.system_info = Some(data);
                     }
                     Err(e) => self.add_error(e),
                 },
