@@ -24,10 +24,10 @@ pub struct SystemTab {
 
 impl App {
     pub fn system_view(&mut self, ui: &mut egui::Ui) {
-        match self.system.central_view {
+        egui::ScrollArea::vertical().show(ui, |ui| match self.system.central_view {
             CentralView::Home => self.system_details(ui),
             CentralView::DataUsage => self.system_data_usage(ui),
-        }
+        });
     }
 
     pub fn system_side(&mut self, ui: &mut egui::Ui) {
@@ -51,6 +51,7 @@ impl App {
 
     fn system_details(&mut self, ui: &mut egui::Ui) {
         if let Some(system) = &self.system.system_info {
+            ui.allocate_space((f32::INFINITY, 0.).into());
             Grid::new("basic_info_grid").show(ui, |ui| {
                 key_val!(ui, "Version:", &system.version.version);
                 key_val!(ui, "API version:", &system.version.api_version);
