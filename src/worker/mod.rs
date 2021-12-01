@@ -3,7 +3,7 @@ mod image_pull;
 mod logs;
 mod stats;
 
-use crate::event::{EventRequest, EventResponse, HostInspectInfo, ImageInspectInfo};
+use crate::event::{EventRequest, EventResponse, ImageInspectInfo, SystemInspectInfo};
 pub use image_export::{ImageExportEvent, ImageExportWorker};
 pub use image_pull::{ImagePullEvent, ImagePullWorker};
 pub use logs::{LogWorkerEvent, Logs, LogsWorker};
@@ -361,7 +361,7 @@ impl DockerWorker {
                                 .map(|c| c.id().to_string())
                                 .context("failed to create a container"),
                         ),
-                        EventRequest::HostInspect => {
+                        EventRequest::SystemInspect => {
                             match docker
                                 .version()
                                 .await
@@ -376,20 +376,20 @@ impl DockerWorker {
                                                 .await
                                                 .context("checking docker ping info failed")
                                             {
-                                                Ok(ping_info) => EventResponse::HostInspect(Ok(
-                                                    HostInspectInfo {
+                                                Ok(ping_info) => EventResponse::SystemInspect(Ok(
+                                                    SystemInspectInfo {
                                                         version,
                                                         info,
                                                         ping_info,
                                                     },
                                                 )),
-                                                Err(e) => EventResponse::HostInspect(Err(e)),
+                                                Err(e) => EventResponse::SystemInspect(Err(e)),
                                             }
                                         }
-                                        Err(e) => EventResponse::HostInspect(Err(e)),
+                                        Err(e) => EventResponse::SystemInspect(Err(e)),
                                     }
                                 }
-                                Err(e) => EventResponse::HostInspect(Err(e)),
+                                Err(e) => EventResponse::SystemInspect(Err(e)),
                             }
                         }
                     };

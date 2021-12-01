@@ -7,7 +7,7 @@ use docker_api::api::{
 };
 
 #[derive(Debug)]
-pub struct HostInspectInfo {
+pub struct SystemInspectInfo {
     pub version: Version,
     pub info: Info,
     pub ping_info: PingInfo,
@@ -64,7 +64,7 @@ pub enum EventRequest {
         uri: String,
     },
     ContainerCreate(ContainerCreateOpts),
-    HostInspect,
+    SystemInspect,
 }
 
 #[derive(Debug)]
@@ -87,5 +87,5 @@ pub enum EventResponse {
     PullImageChunks(Vec<ImageBuildChunk>),
     DockerUriChange(anyhow::Result<()>),
     ContainerCreate(anyhow::Result<String>),
-    HostInspect(anyhow::Result<HostInspectInfo>),
+    SystemInspect(anyhow::Result<SystemInspectInfo>),
 }
