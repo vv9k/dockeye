@@ -201,7 +201,9 @@ impl App {
                                 ui: &mut egui::Ui,
                                 image: &docker_api::api::ImageSummary,
                             ) {
-                                let name = if let Some(first) = image.repo_tags.first() {
+                                let name = if let Some(first) =
+                                    image.repo_tags.as_ref().and_then(|tags| tags.first())
+                                {
                                     first
                                 } else {
                                     images::trim_id(&image.id)

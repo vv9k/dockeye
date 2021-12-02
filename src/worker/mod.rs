@@ -55,6 +55,9 @@ impl DockerWorker {
             }
         });
         let worker = tokio::spawn(async move {
+            if let Err(e) = docker.adjust_api_version().await {
+                error!("failed to adjust docker API version: {}", e);
+            }
             let mut current_id = None;
             let (_, mut tx_stats_event, mut rx_stats) = StatsWorker::new("");
             let (_, mut tx_logs_event, mut rx_logs) = LogsWorker::new("");
