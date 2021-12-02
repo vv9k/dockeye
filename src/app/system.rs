@@ -89,6 +89,7 @@ impl App {
                     Grid::new("containers_grid")
                         .spacing((20., 10.))
                         .min_col_width(50.)
+                        .striped(true)
                         .show(ui, |ui| {
                             key!(ui, "ID");
                             key!(ui, "Created");
@@ -186,6 +187,7 @@ impl App {
                     Grid::new("images_grid")
                         .spacing((20., 10.))
                         .min_col_width(50.)
+                        .striped(true)
                         .show(ui, |ui| {
                             key!(ui, "ID");
                             key!(ui, "Created");
@@ -260,6 +262,7 @@ impl App {
                         Grid::new("cache_grid")
                             .spacing((20., 10.))
                             .min_col_width(50.)
+                            .striped(true)
                             .show(ui, |ui| {
                                 key!(ui, "ID");
                                 key!(ui, "Type");
