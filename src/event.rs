@@ -65,6 +65,10 @@ pub enum EventRequest {
     ContainerCreate(ContainerCreateOpts),
     SystemInspect,
     SystemDataUsage,
+    ContainerRename {
+        id: String,
+        name: String,
+    },
 }
 
 #[derive(Debug)]
@@ -89,4 +93,5 @@ pub enum EventResponse {
     ContainerCreate(anyhow::Result<String>),
     SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
+    ContainerRename(anyhow::Result<()>),
 }

@@ -11,3 +11,4 @@
 - Add data usage tab with containers, images and build cache data usage stats
 - Data is now preloaded at startup so that it is instantly available
 - Adjust the API version of the client so that it works with older versions of Docker
+- Add a way to rename a container

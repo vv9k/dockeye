@@ -180,6 +180,19 @@ impl ContainerCreateData {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct RenameWindow {
+    pub show: bool,
+    pub id: String,
+    pub new_name: String,
+}
+
+impl RenameWindow {
+    fn toggle(&mut self) {
+        self.show = !self.show;
+    }
+}
+
 #[derive(Debug)]
 pub struct ContainersTab {
     pub containers: Vec<ContainerInfo>,
@@ -190,6 +203,7 @@ pub struct ContainersTab {
     pub current_logs: Option<String>,
     pub logs_page: usize,
     pub create_data: ContainerCreateData,
+    pub rename_window: RenameWindow,
 }
 
 impl Default for ContainersTab {
@@ -203,6 +217,7 @@ impl Default for ContainersTab {
             current_logs: None,
             logs_page: 0,
             create_data: ContainerCreateData::default(),
+            rename_window: RenameWindow::default(),
         }
     }
 }
@@ -235,6 +250,7 @@ impl App {
             CentralView::Container => self.container_details(ui),
             CentralView::Create => self.container_create(ui),
         }
+        self.display_rename_window(ui);
     }
 
     fn containers_menu(&mut self, ui: &mut egui::Ui) {
@@ -455,6 +471,7 @@ impl App {
 
     fn container_details(&mut self, ui: &mut egui::Ui) {
         let mut errors = vec![];
+        let mut rename_id = None;
         if let Some(container) = &self.containers.current_container {
             let color = if is_running(container) {
                 egui::Color32::GREEN
@@ -472,6 +489,9 @@ impl App {
                         .strong(),
                 );
                 self.container_buttons(ui, container, &mut errors);
+                if ui.button("rename").clicked() {
+                    rename_id = Some(container.id.clone());
+                }
             });
             ui.add_space(10.);
             ui.horizontal(|ui| {
@@ -502,6 +522,10 @@ impl App {
                 }
                 ContainerView::Attach => {}
             }
+        }
+        if let Some(id) = rename_id {
+            self.containers.rename_window.toggle();
+            self.containers.rename_window.id = id;
         }
         errors.into_iter().for_each(|error| self.add_error(error));
     }
@@ -912,6 +936,34 @@ impl App {
                         );
                     });
                 });
+        }
+    }
+
+    fn display_rename_window(&mut self, ui: &mut egui::Ui) {
+        if self.containers.rename_window.show {
+            egui::Window::new("Rename a container").show(ui.ctx(), |ui| {
+                ui.text_edit_singleline(&mut self.containers.rename_window.new_name);
+
+                Grid::new("rename_window_buttons").show(ui, |ui| {
+                    if ui.button("OK").clicked() {
+                        let name = self.containers.rename_window.new_name.clone();
+                        if name.is_empty() {
+                            self.add_error("Name of the container can't be empty");
+                        } else {
+                            self.send_event_notify(EventRequest::ContainerRename {
+                                id: self.containers.rename_window.id.clone(),
+                                name,
+                            });
+                            self.containers.rename_window.toggle();
+                        }
+                    }
+
+                    if ui.button("close").clicked() {
+                        self.containers.rename_window.toggle();
+                    }
+                    ui.end_row();
+                });
+            });
         }
     }
 }
