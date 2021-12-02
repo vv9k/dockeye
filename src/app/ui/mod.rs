@@ -61,7 +61,7 @@ pub mod icon {
 pub fn light_visuals() -> Visuals {
     use color::*;
     let mut widgets = Widgets::light();
-    widgets.noninteractive.bg_fill = *L_BG_1_TRANSPARENT;
+    widgets.noninteractive.bg_fill = *L_BG_2_TRANSPARENT;
     widgets.inactive.bg_fill = *L_BG_2_TRANSPARENT;
     widgets.hovered.bg_fill = *L_BG_3_TRANSPARENT;
     widgets.open.bg_fill = *L_BG_3_TRANSPARENT;
@@ -82,7 +82,7 @@ pub fn light_visuals() -> Visuals {
         },
         popup_shadow: Shadow::small_light(),
         widgets,
-        faint_bg_color: *L_BG_0_TRANSPARENT,
+        faint_bg_color: *L_BG_0,
         ..Default::default()
     }
 }
@@ -111,7 +111,7 @@ pub fn dark_visuals() -> Visuals {
         },
         popup_shadow: Shadow::small_dark(),
         widgets,
-        faint_bg_color: *D_BG_00_TRANSPARENT,
+        faint_bg_color: *D_BG_00,
         ..Default::default()
     }
 }

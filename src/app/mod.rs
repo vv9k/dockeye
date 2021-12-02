@@ -182,7 +182,16 @@ impl App {
     }
 
     fn central_panel(&mut self, ctx: &egui::CtxRef) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let frame = egui::Frame {
+            fill: if ctx.style().visuals.dark_mode {
+                *ui::color::D_BG_0
+            } else {
+                *ui::color::L_BG_3
+            },
+            margin: (10., 10.).into(),
+            ..Default::default()
+        };
+        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
             self.display_notifications_and_errors(ctx);
             match self.current_tab {
                 Tab::System => {
