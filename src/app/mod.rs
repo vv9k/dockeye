@@ -310,7 +310,7 @@ impl App {
             }
             Tab::Images if elapsed > 1000 => {
                 self.send_event_notify(EventRequest::ListImages(None));
-                if self.images.pull_view.in_progress {
+                if self.images.pull_view.in_progress || self.images.search_view.pull_in_progress {
                     self.send_event_notify(EventRequest::PullImageChunks);
                 }
                 self.update_time = SystemTime::now();
@@ -448,6 +448,10 @@ impl App {
                 },
                 EventResponse::ContainerRename(res) => match res {
                     Ok(_) => self.add_notification("successfully renamed a container"),
+                    Err(e) => self.add_error(e),
+                },
+                EventResponse::SearchImage(res) => match res {
+                    Ok(results) => self.images.search_view.images = Some(results),
                     Err(e) => self.add_error(e),
                 },
             }

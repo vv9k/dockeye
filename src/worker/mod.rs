@@ -404,6 +404,17 @@ impl DockerWorker {
                                 Err(e) => EventResponse::ContainerRename(Err(e)),
                             }
                         }
+                        EventRequest::SearchImage { image } => {
+                            match docker
+                                .images()
+                                .search(&image)
+                                .await
+                                .context("image search failed")
+                            {
+                                Ok(results) => EventResponse::SearchImage(Ok(results)),
+                                Err(e) => EventResponse::SearchImage(Err(e)),
+                            }
+                        }
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

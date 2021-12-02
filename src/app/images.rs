@@ -6,7 +6,7 @@ use crate::app::{
 };
 use crate::event::EventRequest;
 use crate::ImageInspectInfo;
-use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth};
+use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth, SearchResult};
 
 use anyhow::Error;
 use egui::{Grid, Label, TextEdit};
@@ -37,6 +37,13 @@ fn name(id: &str, tags: Option<&Vec<String>>) -> String {
 }
 
 #[derive(Debug, Default)]
+pub struct SearchView {
+    pub image: String,
+    pub images: Option<Vec<SearchResult>>,
+    pub pull_in_progress: bool,
+}
+
+#[derive(Debug, Default)]
 pub struct PullView {
     pub image: String,
     pub user: String,
@@ -48,6 +55,7 @@ pub struct PullView {
 pub enum CentralView {
     Image,
     Pull,
+    Search,
     None,
 }
 
@@ -58,6 +66,7 @@ pub struct ImagesTab {
     pub current_pull_chunks: Option<Vec<ImageBuildChunk>>,
     pub central_view: CentralView,
     pub pull_view: PullView,
+    pub search_view: SearchView,
 }
 impl Default for ImagesTab {
     fn default() -> Self {
@@ -67,6 +76,7 @@ impl Default for ImagesTab {
             current_pull_chunks: None,
             central_view: CentralView::None,
             pull_view: PullView::default(),
+            search_view: SearchView::default(),
         }
     }
 }
@@ -84,6 +94,7 @@ impl App {
         match self.images.central_view {
             CentralView::Image => self.image_details(ui),
             CentralView::Pull => self.images_pull(ui),
+            CentralView::Search => self.images_search(ui),
             CentralView::None => {}
         }
     }
@@ -103,6 +114,7 @@ impl App {
                 "main view",
             );
             ui.selectable_value(&mut self.images.central_view, CentralView::Pull, "pull");
+            ui.selectable_value(&mut self.images.central_view, CentralView::Search, "search");
         });
     }
 
@@ -217,7 +229,6 @@ impl App {
                                             {
                                                 let tar_name =
                                                     format!("image_{}", trim_id(&image.id));
-                                                log::warn!("{}", tar_name);
                                                 match native_dialog::FileDialog::new()
                                                     .add_filter("tar archive", &["tar"])
                                                     .set_filename(&tar_name[..])
@@ -498,5 +509,113 @@ impl App {
                 .code_editor()
                 .desired_width(f32::INFINITY),
         );
+    }
+
+    fn images_search(&mut self, ui: &mut egui::Ui) {
+        ui.add(
+            Label::new("Search for images in Docker Hub")
+                .heading()
+                .strong(),
+        );
+        ui.add_space(25.);
+
+        key!(ui, "Term:");
+        ui.horizontal(|ui| {
+            ui.add(TextEdit::singleline(&mut self.images.search_view.image).desired_width(150.));
+            if ui.button("search").clicked() {
+                if self.images.search_view.image.is_empty() {
+                    self.add_error(
+                        "Can't search for an empty term. Enter a name of the image to search for",
+                    );
+                } else {
+                    self.send_event_notify(EventRequest::SearchImage {
+                        image: self.images.search_view.image.clone(),
+                    })
+                }
+            }
+        });
+
+        ui.add_space(15.);
+
+        let mut progress_percent = 0.;
+        if let Some(chunks) = self.images.current_pull_chunks.as_ref() {
+            for chunk in chunks {
+                match chunk {
+                    ImageBuildChunk::Digest { aux: _ } => {
+                        progress_percent = 1.;
+                    }
+                    ImageBuildChunk::PullStatus {
+                        status,
+                        id: _,
+                        progress: _,
+                        progress_detail,
+                    } => {
+                        if status.starts_with("Digest") {
+                            progress_percent = 1.;
+                        }
+                        if let Some(progress) = progress_detail {
+                            if let Some(current) = progress.current {
+                                if let Some(total) = progress.total {
+                                    progress_percent = current as f32 / total as f32;
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if self.images.search_view.pull_in_progress || (progress_percent - 1.).abs() < f32::EPSILON
+        {
+            ui.add(
+                egui::ProgressBar::new(progress_percent)
+                    .desired_width(200.)
+                    .animate(true),
+            );
+        }
+
+        let mut pull_events = vec![];
+
+        if let Some(images) = self.images.search_view.images.as_ref() {
+            Grid::new("images_search_grid")
+                .striped(true)
+                .spacing((10., 10.))
+                .show(ui, |ui| {
+                    ui.scope(|_| {});
+                    key!(ui, "Name");
+                    key!(ui, "Star count");
+                    key!(ui, "Official");
+                    key!(ui, "Automated");
+                    ui.scope(|ui| {
+                        key!(ui, "Description");
+                        ui.allocate_space((ui.available_width() / 5., 0.).into());
+                    });
+                    ui.end_row();
+
+                    for image in images {
+                        if ui.button(icon::ARROW_DOWN).clicked() {
+                            // #TODO: handle auth
+                            pull_events.push(EventRequest::PullImage {
+                                image: image.name.clone(),
+                                auth: None,
+                            });
+                            self.images.current_pull_chunks = None;
+                            self.images.search_view.pull_in_progress = true;
+                        }
+                        ui.scope(|ui| {
+                            ui.add(icon());
+                            val!(ui, &image.name);
+                        });
+                        val!(ui, image.star_count);
+                        ui.add(ui::bool_icon(image.is_official));
+                        ui.add(ui::bool_icon(image.is_automated));
+                        val!(ui, &image.description);
+                        ui.end_row();
+                    }
+                });
+        }
+        for event in pull_events {
+            self.send_event_notify(event);
+        }
     }
 }
