@@ -272,12 +272,15 @@ impl App {
         if let Some(image) = &self.images.current_image {
             let details = &image.details;
 
-            ui.add(
-                Label::new(name(&details.id, Some(details.repo_tags.as_ref())))
-                    .heading()
-                    .wrap(true)
-                    .strong(),
-            );
+            ui.horizontal(|ui| {
+                ui.add(icon());
+                ui.add(
+                    Label::new(name(&details.id, Some(details.repo_tags.as_ref())))
+                        .heading()
+                        .wrap(true)
+                        .strong(),
+                );
+            });
             ui.add_space(25.);
 
             Grid::new("image_details").show(ui, |ui| {
