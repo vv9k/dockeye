@@ -10,7 +10,10 @@ pub use logs::{LogWorkerEvent, Logs, LogsWorker};
 pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
 use anyhow::{Context, Result};
-use docker_api::Docker;
+use docker_api::{
+    api::{RmContainerOpts, RmImageOpts},
+    Docker,
+};
 use log::{debug, error, trace};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -204,16 +207,30 @@ impl DockerWorker {
                                 .get(&id)
                                 .delete()
                                 .await
-                                .map(|_| id)
-                                .context("deleting container"),
+                                .map(|_| id.clone())
+                                .map_err(|e| (id, e)),
                         ),
                         EventRequest::DeleteImage { id } => EventResponse::DeleteImage(
+                            docker.images().get(&id).delete().await.map_err(|e| (id, e)),
+                        ),
+                        EventRequest::ForceDeleteContainer { id } => {
+                            EventResponse::ForceDeleteContainer(
+                                docker
+                                    .containers()
+                                    .get(&id)
+                                    .remove(&RmContainerOpts::builder().force(true).build())
+                                    .await
+                                    .map(|_| id)
+                                    .context("force deleting container"),
+                            )
+                        }
+                        EventRequest::ForceDeleteImage { id } => EventResponse::ForceDeleteImage(
                             docker
                                 .images()
                                 .get(&id)
-                                .delete()
+                                .remove(&RmImageOpts::builder().force(true).build())
                                 .await
-                                .context("deleting image"),
+                                .context("force deleting image"),
                         ),
                         EventRequest::ContainerStats => {
                             if let Err(e) = tx_stats_event.send(StatsWorkerEvent::PollData).await {

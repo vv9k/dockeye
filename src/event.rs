@@ -5,6 +5,7 @@ use docker_api::api::{
     DeleteStatus, DistributionInspectInfo, History, ImageBuildChunk, ImageDetails, ImageInfo,
     ImageListOpts, Info, RegistryAuth, SearchResult, Version,
 };
+use docker_api::Error;
 
 #[derive(Debug)]
 pub struct SystemInspectInfo {
@@ -72,6 +73,12 @@ pub enum EventRequest {
     SearchImage {
         image: String,
     },
+    ForceDeleteImage {
+        id: String,
+    },
+    ForceDeleteContainer {
+        id: String,
+    },
 }
 
 #[derive(Debug)]
@@ -82,8 +89,8 @@ pub enum EventResponse {
     ContainerStats(Box<RunningContainerStats>),
     ContainerLogs(Box<Logs>),
     ContainerDetails(Box<ContainerDetails>),
-    DeleteContainer(anyhow::Result<String>),
-    DeleteImage(anyhow::Result<DeleteStatus>),
+    DeleteContainer(Result<String, (String, Error)>),
+    DeleteImage(Result<DeleteStatus, (String, Error)>),
     StopContainer(anyhow::Result<()>),
     UnpauseContainer(anyhow::Result<()>),
     PauseContainer(anyhow::Result<()>),
@@ -98,4 +105,6 @@ pub enum EventResponse {
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
     ContainerRename(anyhow::Result<()>),
     SearchImage(anyhow::Result<Vec<SearchResult>>),
+    ForceDeleteContainer(anyhow::Result<String>),
+    ForceDeleteImage(anyhow::Result<DeleteStatus>),
 }
