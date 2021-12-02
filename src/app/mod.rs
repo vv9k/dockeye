@@ -460,7 +460,10 @@ impl App {
                     Err(e) => self.add_error(e),
                 },
                 EventResponse::SearchImage(res) => match res {
-                    Ok(results) => self.images.search_view.images = Some(results),
+                    Ok(mut results) => {
+                        results.sort_by(|a, b| b.star_count.cmp(&a.star_count));
+                        self.images.search_view.images = Some(results)
+                    }
                     Err(e) => self.add_error(e),
                 },
             }
