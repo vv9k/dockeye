@@ -2,7 +2,7 @@ mod popup;
 
 use egui::{
     style::{Selection, Widgets},
-    Color32, Stroke, Visuals,
+    Color32, Label, Stroke, Visuals,
 };
 use epaint::Shadow;
 pub use popup::{popup, ActionPopup, Popup};
@@ -53,7 +53,9 @@ pub mod icon {
     pub const SETTINGS: &str = "\u{2699}";
     pub const SAVE: &str = "\u{1F4BE}";
     pub const ADD: &str = "\u{2795}";
+    pub const SUB: &str = "\u{2796}";
     pub const DISK: &str = "\u{1F5B4}";
+    pub const ARROW_DOWN: &str = "\u{2B8B}";
 }
 
 pub fn light_visuals() -> Visuals {
@@ -80,6 +82,7 @@ pub fn light_visuals() -> Visuals {
         },
         popup_shadow: Shadow::small_light(),
         widgets,
+        faint_bg_color: *L_BG_0_TRANSPARENT,
         ..Default::default()
     }
 }
@@ -108,6 +111,7 @@ pub fn dark_visuals() -> Visuals {
         },
         popup_shadow: Shadow::small_dark(),
         widgets,
+        faint_bg_color: *D_BG_00_TRANSPARENT,
         ..Default::default()
     }
 }
@@ -115,7 +119,11 @@ pub fn dark_visuals() -> Visuals {
 #[macro_export]
 macro_rules! key {
     ($ui:ident, $k:expr) => {
-        $ui.add(egui::Label::new($k).strong());
+        $ui.add(egui::Label::new($k).strong().sense(egui::Sense {
+            click: true,
+            focusable: true,
+            drag: false,
+        }))
     };
 }
 
@@ -180,4 +188,12 @@ pub fn line_with_size(
             response
         })
         .response
+}
+
+pub fn bool_icon(val: bool) -> Label {
+    if val {
+        Label::new(icon::ADD).strong().text_color(Color32::GREEN)
+    } else {
+        Label::new(icon::SUB).strong().text_color(Color32::RED)
+    }
 }

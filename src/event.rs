@@ -3,7 +3,7 @@ use crate::worker::{Logs, RunningContainerStats};
 use docker_api::api::{
     ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerListOpts, DataUsage,
     DeleteStatus, DistributionInspectInfo, History, ImageBuildChunk, ImageDetails, ImageInfo,
-    ImageListOpts, Info, RegistryAuth, Version,
+    ImageListOpts, Info, RegistryAuth, SearchResult, Version,
 };
 
 #[derive(Debug)]
@@ -69,6 +69,9 @@ pub enum EventRequest {
         id: String,
         name: String,
     },
+    SearchImage {
+        image: String,
+    },
 }
 
 #[derive(Debug)]
@@ -94,4 +97,5 @@ pub enum EventResponse {
     SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
     ContainerRename(anyhow::Result<()>),
+    SearchImage(anyhow::Result<Vec<SearchResult>>),
 }
