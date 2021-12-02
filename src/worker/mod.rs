@@ -392,6 +392,18 @@ impl DockerWorker {
                                 Err(e) => EventResponse::SystemDataUsage(Err(e)),
                             }
                         }
+                        EventRequest::ContainerRename { id, name } => {
+                            match docker
+                                .containers()
+                                .get(&id)
+                                .rename(&name)
+                                .await
+                                .context("renaming container failed")
+                            {
+                                Ok(_) => EventResponse::ContainerRename(Ok(())),
+                                Err(e) => EventResponse::ContainerRename(Err(e)),
+                            }
+                        }
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

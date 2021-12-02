@@ -446,6 +446,10 @@ impl App {
                     }
                     Err(e) => self.add_error(e),
                 },
+                EventResponse::ContainerRename(res) => match res {
+                    Ok(_) => self.add_notification("successfully renamed a container"),
+                    Err(e) => self.add_error(e),
+                },
             }
         }
     }
