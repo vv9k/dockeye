@@ -13,3 +13,4 @@
 - Adjust the API version of the client so that it works with older versions of Docker
 - Add a way to rename a container
 - Add a search view that allows easy image pull from Docker Hub
+- Add ability to forcefully delete image/container when docker returns an error

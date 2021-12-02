@@ -361,25 +361,57 @@ impl App {
                     Ok(id) => {
                         self.add_notification(format!("successfully deleted container {}", id))
                     }
-                    Err(e) => self.add_error(e),
+                    Err((id, e)) => match e {
+                        docker_api::Error::Fault { code, message } => {
+                            if code.as_u16() == 409 {
+                                self.popups.push_back(ui::ActionPopup::new(
+                                    EventRequest::ForceDeleteContainer { id },
+                                    "Force delete container",
+                                    format!("{}\nAre you sure you want to forcefully delete this container?", message),
+                                ));
+                            } else {
+                                self.add_error(format!(
+                                    "cannot force delete container {}: {}",
+                                    id, message
+                                ));
+                            }
+                        }
+                        _ => self.add_error(e),
+                    },
                 },
                 EventResponse::DeleteImage(res) => match res {
                     Ok(status) => {
-                        let status = status.into_iter().fold(String::new(), |mut acc, s| {
-                            match s {
-                                Status::Deleted(s) => {
-                                    acc.push_str("Deleted: ");
-                                    acc.push_str(&s)
-                                }
-                                Status::Untagged(s) => {
-                                    acc.push_str("Untagged: ");
-                                    acc.push_str(&s)
-                                }
-                            }
-                            acc.push('\n');
-                            acc
-                        });
+                        let status = format_status(status);
                         self.add_notification(status)
+                    }
+                    Err((id, e)) => match e {
+                        docker_api::Error::Fault { code, message } => {
+                            if code.as_u16() == 409 && !message.contains("cannot be forced") {
+                                self.popups.push_back(ui::ActionPopup::new(
+                                    EventRequest::ForceDeleteImage { id },
+                                    "Force delete image",
+                                    format!("{}\n Are you sure you want to forcefully delete this image?", message),
+                                ));
+                            } else {
+                                self.add_error(format!(
+                                    "cannot force delete image {}: {}",
+                                    id, message
+                                ));
+                            }
+                        }
+                        _ => self.add_error(e),
+                    },
+                },
+                EventResponse::ForceDeleteImage(res) => match res {
+                    Ok(status) => {
+                        let status = format_status(status);
+                        self.add_notification(status);
+                    }
+                    Err(e) => self.add_error(e),
+                },
+                EventResponse::ForceDeleteContainer(res) => match res {
+                    Ok(id) => {
+                        self.add_notification(format!("successfully deleted container {}", id))
                     }
                     Err(e) => self.add_error(e),
                 },
@@ -545,4 +577,21 @@ impl App {
             }
         }
     }
+}
+
+fn format_status(status: Vec<docker_api::api::Status>) -> String {
+    status.into_iter().fold(String::new(), |mut acc, s| {
+        match s {
+            Status::Deleted(s) => {
+                acc.push_str("Deleted: ");
+                acc.push_str(&s)
+            }
+            Status::Untagged(s) => {
+                acc.push_str("Untagged: ");
+                acc.push_str(&s)
+            }
+        }
+        acc.push('\n');
+        acc
+    })
 }
