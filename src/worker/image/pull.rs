@@ -80,27 +80,23 @@ impl ImagePullWorker {
                                 log::trace!("adding chunk");
                                 chunks.push(chunk);
 
-                                match c {
-                                    ImageBuildChunk::PullStatus { status, ..} => {
-                                        if status.contains("Digest:") {
-                                            let _ = self.tx_results
-                                                .send(Ok(status.trim_start_matches("Digest: ").to_string()))
-                                                .await;
+                                if let ImageBuildChunk::PullStatus { status, ..} = c {
+                                    if status.contains("Digest:") {
+                                        let _ = self.tx_results
+                                            .send(Ok(status.trim_start_matches("Digest: ").to_string()))
+                                            .await;
 
-                                            send_chunks!();
-                                            break;
-                                        } else if status.contains("error") {
-                                            let _ = self.tx_results
-                                                .send(Err(Error::msg(status.clone())))
-                                                .await;
+                                        send_chunks!();
+                                        break;
+                                    } else if status.contains("error") {
+                                        let _ = self.tx_results
+                                            .send(Err(Error::msg(status.clone())))
+                                            .await;
 
-                                            send_chunks!();
-                                            break;
-                                        } else {
-                                        }
+                                        send_chunks!();
+                                        break;
                                     }
-                                    _ => {}
-                                };
+                                }
                             }
                             Err(e) => {
                                 match e {

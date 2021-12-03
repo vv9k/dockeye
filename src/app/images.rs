@@ -107,7 +107,7 @@ impl App {
     }
 
     fn images_menu(&mut self, ui: &mut egui::Ui) {
-        egui::Grid::new("image_menu").show(ui, |ui| {
+        egui::Grid::new("images_tab_grid").show(ui, |ui| {
             ui.selectable_value(
                 &mut self.images.central_view,
                 CentralView::None,
@@ -115,6 +115,28 @@ impl App {
             );
             ui.selectable_value(&mut self.images.central_view, CentralView::Pull, "pull");
             ui.selectable_value(&mut self.images.central_view, CentralView::Search, "search");
+        });
+        egui::Grid::new("images_button_grid").show(ui, |ui| {
+            if ui.button("import").clicked() {
+                match native_dialog::FileDialog::new()
+                    .add_filter("tar archive", &["tar"])
+                    .add_filter("tar gzip archive", &["tar.gz", "tgz"])
+                    .add_filter("tar bzip2 archive", &["tar.bz2"])
+                    .add_filter("tar xz archive", &["tar.xz", "txz"])
+                    .show_open_single_file()
+                {
+                    Ok(Some(path)) => {
+                        if let Err(e) = self.send_event(EventRequest::ImportImage { path }) {
+                            self.add_error(e);
+                        };
+                    }
+                    Ok(None) => {}
+                    Err(e) => self
+                        .add_error(Error::msg(
+                            format!("failed to spawn a file dialog - {}", e,),
+                        )),
+                }
+            }
         });
     }
 

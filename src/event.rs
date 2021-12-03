@@ -79,6 +79,9 @@ pub enum EventRequest {
     ForceDeleteContainer {
         id: String,
     },
+    ImportImage {
+        path: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -107,4 +110,5 @@ pub enum EventResponse {
     SearchImage(anyhow::Result<Vec<SearchResult>>),
     ForceDeleteContainer(anyhow::Result<String>),
     ForceDeleteImage(anyhow::Result<DeleteStatus>),
+    ImportImage(anyhow::Result<String>),
 }
