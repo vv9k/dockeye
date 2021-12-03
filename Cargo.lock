@@ -635,6 +635,7 @@ dependencies = [
  "log",
  "native-dialog",
  "pretty_env_logger",
+ "ropey",
  "serde",
  "serde_yaml",
  "strip-ansi-escapes",
@@ -1845,6 +1846,15 @@ dependencies = [
  "base64",
  "bitflags",
  "serde",
+]
+
+[[package]]
+name = "ropey"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9150aff6deb25b20ed110889f070a678bcd1033e46e5e9d6fb1abeab17947f28"
+dependencies = [
+ "smallvec",
 ]
 
 [[package]]
