@@ -3,7 +3,7 @@ use crate::worker::{Logs, RunningContainerStats};
 use docker_api::api::{
     ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo, ContainerListOpts,
     DataUsage, DeleteStatus, DistributionInspectInfo, History, ImageBuildChunk, ImageDetails,
-    ImageId, ImageInfo, ImageListOpts, Info, RegistryAuth, SearchResult, Version,
+    ImageId, ImageInfo, ImageListOpts, ImagesPruneInfo, Info, RegistryAuth, SearchResult, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -65,6 +65,7 @@ pub enum ImageEvent {
         path: PathBuf,
     },
     PullChunks,
+    Prune,
 }
 
 #[derive(Debug)]
@@ -104,6 +105,7 @@ pub enum ImageEventResponse {
     Search(anyhow::Result<Vec<SearchResult>>),
     ForceDelete(anyhow::Result<DeleteStatus>),
     Import(anyhow::Result<String>),
+    Prune(anyhow::Result<ImagesPruneInfo>),
 }
 
 #[derive(Debug)]

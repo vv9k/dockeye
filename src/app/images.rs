@@ -139,6 +139,13 @@ impl App {
                         )),
                 }
             }
+            if ui.button("prune").clicked() {
+                self.popups.push_back(ui::ActionPopup::new(
+                    EventRequest::Image(ImageEvent::Prune),
+                    "Prune images",
+                    "Are you sure you want to prune unused images? This will delete all images not in use by a container.",
+                ));
+            }
         });
     }
 
