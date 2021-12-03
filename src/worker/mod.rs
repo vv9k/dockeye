@@ -99,7 +99,7 @@ impl DockerWorker {
                     if let Ok(res) = rx_image_import_results.try_recv() {
                         let rsp = EventResponse::ImportImage(res);
                         let _ = tx_rsp.send(rsp).await;
-                        if let Some(_) = _rx_import_chunks.recv().await {}
+                        //if let Some(_) = _rx_import_chunks.recv().await {}
                         image_pull_in_progress = false;
                     }
                 }
