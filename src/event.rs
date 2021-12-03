@@ -6,6 +6,7 @@ use docker_api::api::{
     ImageListOpts, Info, RegistryAuth, SearchResult, Version,
 };
 use docker_api::Error;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct SystemInspectInfo {
@@ -21,94 +22,95 @@ pub struct ImageInspectInfo {
 }
 
 #[derive(Debug)]
-pub enum EventRequest {
-    ListContainers(Option<ContainerListOpts>),
-    ListImages(Option<ImageListOpts>),
-    InspectImage {
+pub enum ContainerEvent {
+    List(Option<ContainerListOpts>),
+    Delete { id: String },
+    Stats,
+    Logs,
+    Details,
+    Stop { id: String },
+    Unpause { id: String },
+    Pause { id: String },
+    Start { id: String },
+    TraceStart { id: String },
+    Create(ContainerCreateOpts),
+    Rename { id: String, name: String },
+    ForceDelete { id: String },
+}
+
+#[derive(Debug)]
+pub enum ImageEvent {
+    List(Option<ImageListOpts>),
+    Inspect {
         id: String,
     },
-    DeleteContainer {
+    Delete {
         id: String,
     },
-    DeleteImage {
+    Save {
         id: String,
+        output_path: PathBuf,
     },
-    ContainerStats,
-    ContainerLogs,
-    ContainerDetails,
-    StopContainer {
-        id: String,
-    },
-    UnpauseContainer {
-        id: String,
-    },
-    PauseContainer {
-        id: String,
-    },
-    StartContainer {
-        id: String,
-    },
-    ContainerTraceStart {
-        id: String,
-    },
-    SaveImage {
-        id: String,
-        output_path: std::path::PathBuf,
-    },
-    PullImage {
+    Pull {
         image: String,
         auth: Option<RegistryAuth>,
     },
-    PullImageChunks,
-    DockerUriChange {
-        uri: String,
-    },
-    ContainerCreate(ContainerCreateOpts),
-    SystemInspect,
-    SystemDataUsage,
-    ContainerRename {
-        id: String,
-        name: String,
-    },
-    SearchImage {
+    Search {
         image: String,
     },
-    ForceDeleteImage {
+    ForceDelete {
         id: String,
     },
-    ForceDeleteContainer {
-        id: String,
+    Import {
+        path: PathBuf,
     },
-    ImportImage {
-        path: std::path::PathBuf,
-    },
+    PullChunks,
+}
+
+#[derive(Debug)]
+pub enum EventRequest {
+    Container(ContainerEvent),
+    Image(ImageEvent),
+    DockerUriChange { uri: String },
+    SystemInspect,
+    SystemDataUsage,
+}
+
+#[derive(Debug)]
+pub enum ContainerEventResponse {
+    List(Vec<ContainerInfo>),
+    Stats(Box<RunningContainerStats>),
+    Logs(Box<Logs>),
+    Details(Box<ContainerDetails>),
+    Delete(Result<String, (String, Error)>),
+    Stop(anyhow::Result<()>),
+    Unpause(anyhow::Result<()>),
+    Pause(anyhow::Result<()>),
+    Start(anyhow::Result<()>),
+    InspectNotFound,
+    Create(anyhow::Result<String>),
+    Rename(anyhow::Result<()>),
+    ForceDelete(anyhow::Result<String>),
+}
+
+#[derive(Debug)]
+pub enum ImageEventResponse {
+    List(Vec<ImageInfo>),
+    Inspect(Box<ImageInspectInfo>),
+    Delete(Result<DeleteStatus, (String, Error)>),
+    Save(anyhow::Result<(String, PathBuf)>),
+    Pull(anyhow::Result<String>),
+    PullChunks(Vec<ImageBuildChunk>),
+    Search(anyhow::Result<Vec<SearchResult>>),
+    ForceDelete(anyhow::Result<DeleteStatus>),
+    Import(anyhow::Result<String>),
 }
 
 #[derive(Debug)]
 pub enum EventResponse {
-    ListContainers(Vec<ContainerInfo>),
-    ListImages(Vec<ImageInfo>),
-    InspectImage(Box<ImageInspectInfo>),
-    ContainerStats(Box<RunningContainerStats>),
-    ContainerLogs(Box<Logs>),
-    ContainerDetails(Box<ContainerDetails>),
-    DeleteContainer(Result<String, (String, Error)>),
-    DeleteImage(Result<DeleteStatus, (String, Error)>),
-    StopContainer(anyhow::Result<()>),
-    UnpauseContainer(anyhow::Result<()>),
-    PauseContainer(anyhow::Result<()>),
-    StartContainer(anyhow::Result<()>),
-    InspectContainerNotFound,
-    SaveImage(anyhow::Result<(String, std::path::PathBuf)>),
-    PullImage(anyhow::Result<String>),
-    PullImageChunks(Vec<ImageBuildChunk>),
+    Container(ContainerEventResponse),
+    Image(ImageEventResponse),
     DockerUriChange(anyhow::Result<()>),
-    ContainerCreate(anyhow::Result<String>),
     SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
-    ContainerRename(anyhow::Result<()>),
-    SearchImage(anyhow::Result<Vec<SearchResult>>),
-    ForceDeleteContainer(anyhow::Result<String>),
-    ForceDeleteImage(anyhow::Result<DeleteStatus>),
-    ImportImage(anyhow::Result<String>),
 }

@@ -2,7 +2,10 @@ mod image;
 mod logs;
 mod stats;
 
-use crate::event::{EventRequest, EventResponse, ImageInspectInfo, SystemInspectInfo};
+use crate::event::{
+    ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
+    ImageEventResponse, ImageInspectInfo, SystemInspectInfo,
+};
 pub use image::{
     export::{ImageExportEvent, ImageExportWorker},
     import::{ImageImportEvent, ImageImportWorker},
@@ -79,17 +82,17 @@ impl DockerWorker {
             loop {
                 if image_export_in_progress {
                     if let Ok(res) = rx_image_export_results.try_recv() {
-                        let rsp = EventResponse::SaveImage(res);
+                        let rsp = EventResponse::Image(ImageEventResponse::Save(res));
                         let _ = tx_rsp.send(rsp).await;
                         image_export_in_progress = false;
                     }
                 }
                 if image_pull_in_progress {
                     if let Ok(res) = rx_image_pull_results.try_recv() {
-                        let rsp = EventResponse::PullImage(res);
+                        let rsp = EventResponse::Image(ImageEventResponse::Pull(res));
                         let _ = tx_rsp.send(rsp).await;
                         if let Some(chunks) = rx_pull_chunks.recv().await {
-                            let rsp = EventResponse::PullImageChunks(chunks);
+                            let rsp = EventResponse::Image(ImageEventResponse::PullChunks(chunks));
                             let _ = tx_rsp.send(rsp).await;
                         }
                         image_pull_in_progress = false;
@@ -97,7 +100,7 @@ impl DockerWorker {
                 }
                 if image_import_in_progress {
                     if let Ok(res) = rx_image_import_results.try_recv() {
-                        let rsp = EventResponse::ImportImage(res);
+                        let rsp = EventResponse::Image(ImageEventResponse::Import(res));
                         let _ = tx_rsp.send(rsp).await;
                         //if let Some(_) = _rx_import_chunks.recv().await {}
                         image_pull_in_progress = false;
@@ -107,256 +110,327 @@ impl DockerWorker {
                     let event_str = format!("{:?}", req);
                     debug!("got request: {}", event_str);
                     let rsp = match req {
-                        EventRequest::ListContainers(opts) => {
-                            let opts = opts.unwrap_or_default();
-                            match docker.containers().list(&opts).await {
-                                Ok(containers) => EventResponse::ListContainers(containers),
-                                Err(e) => {
-                                    error!("failed to list containers: {}", e);
-                                    continue;
-                                }
-                            }
-                        }
-                        EventRequest::ListImages(opts) => {
-                            let opts = opts.unwrap_or_default();
-                            match docker.images().list(&opts).await {
-                                Ok(images) => EventResponse::ListImages(images),
-                                Err(e) => {
-                                    error!("failed to list images: {}", e);
-                                    continue;
-                                }
-                            }
-                        }
-                        EventRequest::ContainerTraceStart { id } => {
-                            if Some(&id) == current_id.as_ref() {
-                                continue;
-                            }
-
-                            if current_id.is_some() {
-                                if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
-                                    error!("failed to send kill event to log worker: {}", e);
-                                }
-                                if let Err(e) = tx_stats_event.send(StatsWorkerEvent::Kill).await {
-                                    error!("failed to send kill event to stats worker: {}", e);
-                                }
-                            }
-
-                            current_id = Some(id.clone());
-
-                            let s = StatsWorker::new(&id);
-                            tx_stats_event = s.1;
-                            rx_stats = s.2;
-                            let _ = tokio::spawn(s.0.work(docker.clone()));
-
-                            let w = LogsWorker::new(&id);
-                            tx_logs_event = w.1;
-                            rx_logs = w.2;
-                            let _ = tokio::spawn(w.0.work(docker.clone()));
-
-                            match docker.containers().get(&id).inspect().await {
-                                Ok(container) => {
-                                    EventResponse::ContainerDetails(Box::new(container))
-                                }
-                                Err(e) => {
-                                    error!("failed to inspect a container: {}", e);
-                                    continue;
-                                }
-                            }
-                        }
-                        EventRequest::ContainerDetails => {
-                            if let Some(id) = &current_id {
-                                match docker.containers().get(id).inspect().await {
-                                    Ok(container) => {
-                                        EventResponse::ContainerDetails(Box::new(container))
+                        EventRequest::Container(event) => match event {
+                            ContainerEvent::List(opts) => {
+                                let opts = opts.unwrap_or_default();
+                                match docker.containers().list(&opts).await {
+                                    Ok(containers) => EventResponse::Container(
+                                        ContainerEventResponse::List(containers),
+                                    ),
+                                    Err(e) => {
+                                        error!("failed to list containers: {}", e);
+                                        continue;
                                     }
-                                    Err(e) => match e {
-                                        docker_api::Error::Fault {
-                                            code: http::status::StatusCode::NOT_FOUND,
-                                            message: _,
-                                        } => EventResponse::InspectContainerNotFound,
-                                        e => {
-                                            error!("failed to inspect container: {}", e);
-                                            continue;
-                                        }
-                                    },
                                 }
-                            } else {
-                                error!("failed to inspect a container: no current id set");
-                                continue;
                             }
-                        }
-                        EventRequest::InspectImage { id } => {
-                            let image = docker.images().get(id);
-                            let details = match image.inspect().await {
-                                Ok(details) => details,
-                                Err(e) => {
-                                    error!("failed to inspect an image: {}", e);
+                            ContainerEvent::TraceStart { id } => {
+                                if Some(&id) == current_id.as_ref() {
                                     continue;
                                 }
-                            };
-                            let distribution_info = match image.distribution_inspect().await {
-                                Ok(info) => Some(info),
-                                Err(e) => {
-                                    trace!("failed to inspect image distribution: {}", e);
-                                    None
+
+                                if current_id.is_some() {
+                                    if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
+                                        error!("failed to send kill event to log worker: {}", e);
+                                    }
+                                    if let Err(e) =
+                                        tx_stats_event.send(StatsWorkerEvent::Kill).await
+                                    {
+                                        error!("failed to send kill event to stats worker: {}", e);
+                                    }
                                 }
-                            };
-                            let history = match image.history().await {
-                                Ok(history) => history,
-                                Err(e) => {
-                                    error!("failed to check image history: {}", e);
+
+                                current_id = Some(id.clone());
+
+                                let s = StatsWorker::new(&id);
+                                tx_stats_event = s.1;
+                                rx_stats = s.2;
+                                let _ = tokio::spawn(s.0.work(docker.clone()));
+
+                                let w = LogsWorker::new(&id);
+                                tx_logs_event = w.1;
+                                rx_logs = w.2;
+                                let _ = tokio::spawn(w.0.work(docker.clone()));
+
+                                match docker.containers().get(&id).inspect().await {
+                                    Ok(container) => EventResponse::Container(
+                                        ContainerEventResponse::Details(Box::new(container)),
+                                    ),
+                                    Err(e) => {
+                                        error!("failed to inspect a container: {}", e);
+                                        continue;
+                                    }
+                                }
+                            }
+                            ContainerEvent::Details => {
+                                if let Some(id) = &current_id {
+                                    match docker.containers().get(id).inspect().await {
+                                        Ok(container) => EventResponse::Container(
+                                            ContainerEventResponse::Details(Box::new(container)),
+                                        ),
+                                        Err(e) => match e {
+                                            docker_api::Error::Fault {
+                                                code: http::status::StatusCode::NOT_FOUND,
+                                                message: _,
+                                            } => EventResponse::Container(
+                                                ContainerEventResponse::InspectNotFound,
+                                            ),
+                                            e => {
+                                                error!("failed to inspect container: {}", e);
+                                                continue;
+                                            }
+                                        },
+                                    }
+                                } else {
+                                    error!("failed to inspect a container: no current id set");
                                     continue;
                                 }
-                            };
-                            EventResponse::InspectImage(Box::new(ImageInspectInfo {
-                                details,
-                                distribution_info,
-                                history,
-                            }))
-                        }
-                        EventRequest::DeleteContainer { id } => EventResponse::DeleteContainer(
-                            docker
-                                .containers()
-                                .get(&id)
-                                .delete()
-                                .await
-                                .map(|_| id.clone())
-                                .map_err(|e| (id, e)),
-                        ),
-                        EventRequest::DeleteImage { id } => EventResponse::DeleteImage(
-                            docker.images().get(&id).delete().await.map_err(|e| (id, e)),
-                        ),
-                        EventRequest::ForceDeleteContainer { id } => {
-                            EventResponse::ForceDeleteContainer(
-                                docker
+                            }
+                            ContainerEvent::Delete { id } => {
+                                EventResponse::Container(ContainerEventResponse::Delete(
+                                    docker
+                                        .containers()
+                                        .get(&id)
+                                        .delete()
+                                        .await
+                                        .map(|_| id.clone())
+                                        .map_err(|e| (id, e)),
+                                ))
+                            }
+                            ContainerEvent::ForceDelete { id } => {
+                                EventResponse::Container(ContainerEventResponse::ForceDelete(
+                                    docker
+                                        .containers()
+                                        .get(&id)
+                                        .remove(&RmContainerOpts::builder().force(true).build())
+                                        .await
+                                        .map(|_| id)
+                                        .context("force deleting container"),
+                                ))
+                            }
+                            ContainerEvent::Stats => {
+                                if let Err(e) =
+                                    tx_stats_event.send(StatsWorkerEvent::PollData).await
+                                {
+                                    error!("failed to collect stats data: {}", e);
+                                    continue;
+                                }
+                                trace!("notified stats worker to poll data, reading stats");
+                                if let Some(stats) = rx_stats.recv().await {
+                                    trace!("got data {:?}", stats);
+                                    EventResponse::Container(ContainerEventResponse::Stats(stats))
+                                } else {
+                                    log::warn!("no stats available");
+                                    continue;
+                                }
+                            }
+                            ContainerEvent::Logs => {
+                                if let Err(e) = tx_logs_event.send(LogWorkerEvent::PollData).await {
+                                    error!("failed to collect logs: {}", e);
+                                    continue;
+                                }
+                                trace!("notified logs worker to poll data, reading logs");
+                                if let Some(logs) = rx_logs.recv().await {
+                                    trace!("got data {:?}", logs);
+                                    EventResponse::Container(ContainerEventResponse::Logs(logs))
+                                } else {
+                                    log::warn!("no logs available");
+                                    continue;
+                                }
+                            }
+                            ContainerEvent::Pause { id } => {
+                                EventResponse::Container(ContainerEventResponse::Pause(
+                                    docker
+                                        .containers()
+                                        .get(id)
+                                        .pause()
+                                        .await
+                                        .context("pausing container"),
+                                ))
+                            }
+                            ContainerEvent::Unpause { id } => {
+                                EventResponse::Container(ContainerEventResponse::Unpause(
+                                    docker
+                                        .containers()
+                                        .get(id)
+                                        .unpause()
+                                        .await
+                                        .context("unpausing container"),
+                                ))
+                            }
+                            ContainerEvent::Stop { id } => {
+                                EventResponse::Container(ContainerEventResponse::Stop(
+                                    docker
+                                        .containers()
+                                        .get(id)
+                                        .stop(Some(Duration::from_millis(0)))
+                                        .await
+                                        .context("stopping container"),
+                                ))
+                            }
+                            ContainerEvent::Start { id } => {
+                                EventResponse::Container(ContainerEventResponse::Start(
+                                    docker
+                                        .containers()
+                                        .get(id)
+                                        .start()
+                                        .await
+                                        .context("starting container"),
+                                ))
+                            }
+                            ContainerEvent::Create(opts) => {
+                                EventResponse::Container(ContainerEventResponse::Create(
+                                    docker
+                                        .containers()
+                                        .create(&opts)
+                                        .await
+                                        .map(|c| c.id().to_string())
+                                        .context("failed to create a container"),
+                                ))
+                            }
+                            ContainerEvent::Rename { id, name } => {
+                                match docker
                                     .containers()
                                     .get(&id)
-                                    .remove(&RmContainerOpts::builder().force(true).build())
+                                    .rename(&name)
                                     .await
-                                    .map(|_| id)
-                                    .context("force deleting container"),
-                            )
-                        }
-                        EventRequest::ForceDeleteImage { id } => EventResponse::ForceDeleteImage(
-                            docker
-                                .images()
-                                .get(&id)
-                                .remove(&RmImageOpts::builder().force(true).build())
-                                .await
-                                .context("force deleting image"),
-                        ),
-                        EventRequest::ContainerStats => {
-                            if let Err(e) = tx_stats_event.send(StatsWorkerEvent::PollData).await {
-                                error!("failed to collect stats data: {}", e);
+                                    .context("renaming container failed")
+                                {
+                                    Ok(_) => EventResponse::Container(
+                                        ContainerEventResponse::Rename(Ok(())),
+                                    ),
+                                    Err(e) => EventResponse::Container(
+                                        ContainerEventResponse::Rename(Err(e)),
+                                    ),
+                                }
+                            }
+                        },
+                        EventRequest::Image(event) => match event {
+                            ImageEvent::List(opts) => {
+                                let opts = opts.unwrap_or_default();
+                                match docker.images().list(&opts).await {
+                                    Ok(images) => {
+                                        EventResponse::Image(ImageEventResponse::List(images))
+                                    }
+                                    Err(e) => {
+                                        error!("failed to list images: {}", e);
+                                        continue;
+                                    }
+                                }
+                            }
+                            ImageEvent::Inspect { id } => {
+                                let image = docker.images().get(id);
+                                let details = match image.inspect().await {
+                                    Ok(details) => details,
+                                    Err(e) => {
+                                        error!("failed to inspect an image: {}", e);
+                                        continue;
+                                    }
+                                };
+                                let distribution_info = match image.distribution_inspect().await {
+                                    Ok(info) => Some(info),
+                                    Err(e) => {
+                                        trace!("failed to inspect image distribution: {}", e);
+                                        None
+                                    }
+                                };
+                                let history = match image.history().await {
+                                    Ok(history) => history,
+                                    Err(e) => {
+                                        error!("failed to check image history: {}", e);
+                                        continue;
+                                    }
+                                };
+                                EventResponse::Image(ImageEventResponse::Inspect(Box::new(
+                                    ImageInspectInfo {
+                                        details,
+                                        distribution_info,
+                                        history,
+                                    },
+                                )))
+                            }
+                            ImageEvent::Delete { id } => {
+                                EventResponse::Image(ImageEventResponse::Delete(
+                                    docker.images().get(&id).delete().await.map_err(|e| (id, e)),
+                                ))
+                            }
+                            ImageEvent::ForceDelete { id } => {
+                                EventResponse::Image(ImageEventResponse::ForceDelete(
+                                    docker
+                                        .images()
+                                        .get(&id)
+                                        .remove(&RmImageOpts::builder().force(true).build())
+                                        .await
+                                        .context("force deleting image"),
+                                ))
+                            }
+                            ImageEvent::Save { id, output_path } => {
+                                let d = docker.clone();
+                                let i = ImageExportWorker::new(id, output_path);
+                                _tx_image_export_event = i.1;
+                                rx_image_export_results = i.2;
+                                tokio::task::spawn(async move {
+                                    i.0.work(d).await;
+                                });
+                                image_export_in_progress = true;
                                 continue;
                             }
-                            trace!("notified stats worker to poll data, reading stats");
-                            if let Some(stats) = rx_stats.recv().await {
-                                trace!("got data {:?}", stats);
-                                EventResponse::ContainerStats(stats)
-                            } else {
-                                log::warn!("no stats available");
+                            ImageEvent::Pull { image, auth } => {
+                                if image_pull_in_progress {
+                                    continue;
+                                }
+                                let d = docker.clone();
+                                let i = ImagePullWorker::new(image, auth);
+                                tx_pull_event = i.1;
+                                rx_pull_chunks = i.2;
+                                rx_image_pull_results = i.3;
+                                tokio::task::spawn(async move {
+                                    i.0.work(d).await;
+                                });
+                                image_pull_in_progress = true;
                                 continue;
                             }
-                        }
-                        EventRequest::ContainerLogs => {
-                            if let Err(e) = tx_logs_event.send(LogWorkerEvent::PollData).await {
-                                error!("failed to collect logs: {}", e);
+                            ImageEvent::Import { path } => {
+                                if image_import_in_progress {
+                                    continue;
+                                }
+                                let d = docker.clone();
+                                let i = ImageImportWorker::new(&path);
+                                _tx_import_event = i.1;
+                                _rx_import_chunks = i.2;
+                                rx_image_import_results = i.3;
+                                tokio::task::spawn(async move {
+                                    i.0.work(d).await;
+                                });
+                                image_import_in_progress = true;
                                 continue;
                             }
-                            trace!("notified logs worker to poll data, reading logs");
-                            if let Some(logs) = rx_logs.recv().await {
-                                trace!("got data {:?}", logs);
-                                EventResponse::ContainerLogs(logs)
-                            } else {
-                                log::warn!("no logs available");
-                                continue;
+                            ImageEvent::PullChunks => {
+                                if !image_pull_in_progress {
+                                    continue;
+                                }
+                                if let Err(e) = tx_pull_event.send(ImagePullEvent::PollData).await {
+                                    error!("failed to collect image pull chunks: {}", e);
+                                    continue;
+                                }
+                                let chunks = rx_pull_chunks.recv().await.unwrap_or_default();
+                                EventResponse::Image(ImageEventResponse::PullChunks(chunks))
                             }
-                        }
-                        EventRequest::PauseContainer { id } => EventResponse::PauseContainer(
-                            docker
-                                .containers()
-                                .get(id)
-                                .pause()
-                                .await
-                                .context("pausing container"),
-                        ),
-                        EventRequest::UnpauseContainer { id } => EventResponse::UnpauseContainer(
-                            docker
-                                .containers()
-                                .get(id)
-                                .unpause()
-                                .await
-                                .context("unpausing container"),
-                        ),
-                        EventRequest::StopContainer { id } => EventResponse::StopContainer(
-                            docker
-                                .containers()
-                                .get(id)
-                                .stop(Some(Duration::from_millis(0)))
-                                .await
-                                .context("stopping container"),
-                        ),
-                        EventRequest::StartContainer { id } => EventResponse::StartContainer(
-                            docker
-                                .containers()
-                                .get(id)
-                                .start()
-                                .await
-                                .context("starting container"),
-                        ),
-                        EventRequest::SaveImage { id, output_path } => {
-                            let d = docker.clone();
-                            let i = ImageExportWorker::new(id, output_path);
-                            _tx_image_export_event = i.1;
-                            rx_image_export_results = i.2;
-                            tokio::task::spawn(async move {
-                                i.0.work(d).await;
-                            });
-                            image_export_in_progress = true;
-                            continue;
-                        }
-                        EventRequest::PullImage { image, auth } => {
-                            if image_pull_in_progress {
-                                continue;
+                            ImageEvent::Search { image } => {
+                                match docker
+                                    .images()
+                                    .search(&image)
+                                    .await
+                                    .context("image search failed")
+                                {
+                                    Ok(results) => EventResponse::Image(
+                                        ImageEventResponse::Search(Ok(results)),
+                                    ),
+                                    Err(e) => {
+                                        EventResponse::Image(ImageEventResponse::Search(Err(e)))
+                                    }
+                                }
                             }
-                            let d = docker.clone();
-                            let i = ImagePullWorker::new(image, auth);
-                            tx_pull_event = i.1;
-                            rx_pull_chunks = i.2;
-                            rx_image_pull_results = i.3;
-                            tokio::task::spawn(async move {
-                                i.0.work(d).await;
-                            });
-                            image_pull_in_progress = true;
-                            continue;
-                        }
-                        EventRequest::ImportImage { path } => {
-                            if image_import_in_progress {
-                                continue;
-                            }
-                            let d = docker.clone();
-                            let i = ImageImportWorker::new(&path);
-                            _tx_import_event = i.1;
-                            _rx_import_chunks = i.2;
-                            rx_image_import_results = i.3;
-                            tokio::task::spawn(async move {
-                                i.0.work(d).await;
-                            });
-                            image_import_in_progress = true;
-                            continue;
-                        }
-                        EventRequest::PullImageChunks => {
-                            if !image_pull_in_progress {
-                                continue;
-                            }
-                            if let Err(e) = tx_pull_event.send(ImagePullEvent::PollData).await {
-                                error!("failed to collect image pull chunks: {}", e);
-                                continue;
-                            }
-                            let chunks = rx_pull_chunks.recv().await.unwrap_or_default();
-                            EventResponse::PullImageChunks(chunks)
-                        }
+                        },
                         EventRequest::DockerUriChange { uri } => {
                             if uri == current_uri {
                                 continue;
@@ -401,14 +475,6 @@ impl DockerWorker {
                             }
                             EventResponse::DockerUriChange(Ok(()))
                         }
-                        EventRequest::ContainerCreate(opts) => EventResponse::ContainerCreate(
-                            docker
-                                .containers()
-                                .create(&opts)
-                                .await
-                                .map(|c| c.id().to_string())
-                                .context("failed to create a container"),
-                        ),
                         EventRequest::SystemInspect => {
                             match docker
                                 .version()
@@ -435,29 +501,6 @@ impl DockerWorker {
                             {
                                 Ok(usage) => EventResponse::SystemDataUsage(Ok(Box::new(usage))),
                                 Err(e) => EventResponse::SystemDataUsage(Err(e)),
-                            }
-                        }
-                        EventRequest::ContainerRename { id, name } => {
-                            match docker
-                                .containers()
-                                .get(&id)
-                                .rename(&name)
-                                .await
-                                .context("renaming container failed")
-                            {
-                                Ok(_) => EventResponse::ContainerRename(Ok(())),
-                                Err(e) => EventResponse::ContainerRename(Err(e)),
-                            }
-                        }
-                        EventRequest::SearchImage { image } => {
-                            match docker
-                                .images()
-                                .search(&image)
-                                .await
-                                .context("image search failed")
-                            {
-                                Ok(results) => EventResponse::SearchImage(Ok(results)),
-                                Err(e) => EventResponse::SearchImage(Err(e)),
                             }
                         }
                     };

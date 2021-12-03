@@ -4,7 +4,7 @@ use crate::app::{
     ui::{color, key, key_val, val},
     App,
 };
-use crate::event::EventRequest;
+use crate::event::{ContainerEvent, EventRequest};
 use crate::worker::RunningContainerStats;
 
 use docker_api::api::{ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerStatus};
@@ -50,9 +50,9 @@ macro_rules! btn {
             $ui,
             icon::STOP,
             "stop the container",
-            EventRequest::StopContainer {
+            EventRequest::Container(ContainerEvent::Stop {
                 id: $container.id.clone()
-            },
+            }),
             $errors
         );
     };
@@ -62,9 +62,9 @@ macro_rules! btn {
             $ui,
             icon::PLAY,
             "start the container",
-            EventRequest::StartContainer {
+            EventRequest::Container(ContainerEvent::Start {
                 id: $container.id.clone()
-            },
+            }),
             $errors
         );
     };
@@ -74,9 +74,9 @@ macro_rules! btn {
             $ui,
             icon::PAUSE,
             "pause the container",
-            EventRequest::PauseContainer {
+            EventRequest::Container(ContainerEvent::Pause {
                 id: $container.id.clone()
-            },
+            }),
             $errors
         );
     };
@@ -86,9 +86,9 @@ macro_rules! btn {
             $ui,
             icon::PLAY,
             "unpause the container",
-            EventRequest::UnpauseContainer {
+            EventRequest::Container(ContainerEvent::Unpause {
                 id: $container.id.clone()
-            },
+            }),
             $errors
         );
     };
@@ -98,9 +98,9 @@ macro_rules! btn {
             $ui,
             icon::INFO,
             "inpect the container",
-            EventRequest::ContainerTraceStart {
+            EventRequest::Container(ContainerEvent::TraceStart {
                 id: $container.id.clone()
-            },
+            }),
             $errors
         );
     };
@@ -350,11 +350,13 @@ impl App {
                                                     .clicked()
                                                 {
                                                     central_view = CentralView::Container;
-                                                    if let Err(e) = self.send_event(
-                                                        EventRequest::ContainerTraceStart {
-                                                            id: container.id.clone(),
-                                                        },
-                                                    ) {
+                                                    if let Err(e) =
+                                                        self.send_event(EventRequest::Container(
+                                                            ContainerEvent::TraceStart {
+                                                                id: container.id.clone(),
+                                                            },
+                                                        ))
+                                                    {
                                                         errors.push(Box::new(e));
                                                     };
                                                 }
@@ -364,9 +366,11 @@ impl App {
                                                     .clicked()
                                                 {
                                                     popups.push(ui::ActionPopup::new(
-                                                        EventRequest::DeleteContainer {
-                                                            id: container.id.clone(),
-                                                        },
+                                                        EventRequest::Container(
+                                                            ContainerEvent::Delete {
+                                                                id: container.id.clone(),
+                                                            },
+                                                        ),
                                                         "Delete container",
                                                         format!(
                                                     "are you sure you want to delete container {}?",
@@ -456,9 +460,9 @@ impl App {
                     if self.containers.create_data.image.is_empty() {
                         self.add_error("Image name is required to create a container");
                     } else {
-                        self.send_event_notify(EventRequest::ContainerCreate(
+                        self.send_event_notify(EventRequest::Container(ContainerEvent::Create(
                             self.containers.create_data.as_opts(),
-                        ));
+                        )));
                     }
                 }
                 ui.add_space(5.);
@@ -950,10 +954,12 @@ impl App {
                         if name.is_empty() {
                             self.add_error("Name of the container can't be empty");
                         } else {
-                            self.send_event_notify(EventRequest::ContainerRename {
-                                id: self.containers.rename_window.id.clone(),
-                                name,
-                            });
+                            self.send_event_notify(EventRequest::Container(
+                                ContainerEvent::Rename {
+                                    id: self.containers.rename_window.id.clone(),
+                                    name,
+                                },
+                            ));
                             self.containers.rename_window.toggle();
                         }
                     }

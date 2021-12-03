@@ -5,7 +5,10 @@ pub mod settings;
 mod system;
 mod ui;
 
-use crate::event::{EventRequest, EventResponse};
+use crate::event::{
+    ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
+    ImageEventResponse,
+};
 use containers::ContainersTab;
 use images::ImagesTab;
 use settings::{Settings, SettingsWindow};
@@ -90,10 +93,10 @@ impl epi::App for App {
         _frame: &mut epi::Frame<'_>,
         _storage: Option<&dyn epi::Storage>,
     ) {
-        self.send_event_notify(EventRequest::ListContainers(Some(
+        self.send_event_notify(EventRequest::Container(ContainerEvent::List(Some(
             ContainerListOpts::builder().all(true).build(),
-        )));
-        self.send_event_notify(EventRequest::ListImages(None));
+        ))));
+        self.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
         self.send_event_notify(EventRequest::SystemInspect);
         self.send_event_notify(EventRequest::SystemDataUsage);
     }
@@ -346,12 +349,12 @@ impl App {
 
         match self.current_tab {
             Tab::Containers if elapsed > 1000 => {
-                self.send_event_notify(EventRequest::ListContainers(Some(
+                self.send_event_notify(EventRequest::Container(ContainerEvent::List(Some(
                     ContainerListOpts::builder().all(true).build(),
-                )));
+                ))));
                 if self.containers.current_container.is_some() {
-                    self.send_event_notify(EventRequest::ContainerDetails);
-                    self.send_event_notify(EventRequest::ContainerLogs);
+                    self.send_event_notify(EventRequest::Container(ContainerEvent::Details));
+                    self.send_event_notify(EventRequest::Container(ContainerEvent::Logs));
                     if self
                         .containers
                         .current_container
@@ -359,15 +362,15 @@ impl App {
                         .map(|c| containers::is_running(c))
                         .unwrap_or_default()
                     {
-                        self.send_event_notify(EventRequest::ContainerStats);
+                        self.send_event_notify(EventRequest::Container(ContainerEvent::Stats));
                     }
                 }
                 self.timers.update_time = SystemTime::now();
             }
             Tab::Images if elapsed > 1000 => {
-                self.send_event_notify(EventRequest::ListImages(None));
+                self.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
                 if self.images.pull_view.in_progress || self.images.search_view.pull_in_progress {
-                    self.send_event_notify(EventRequest::PullImageChunks);
+                    self.send_event_notify(EventRequest::Image(ImageEvent::PullChunks));
                 }
                 self.timers.update_time = SystemTime::now();
             }
@@ -379,135 +382,12 @@ impl App {
         while let Ok(event) = self.rx_rsp.try_recv() {
             //log::warn!("[gui] received event: {:?}", event);
             match event {
-                EventResponse::ListContainers(mut containers) => {
-                    containers.sort_by(|a, b| b.created.cmp(&a.created));
-                    self.containers.containers = containers
-                }
-                EventResponse::ListImages(mut images) => {
-                    images.sort_by(|a, b| b.created.cmp(&a.created));
-                    self.images.images = images
-                }
-                EventResponse::ContainerDetails(container) => self.set_container(container),
-                EventResponse::InspectContainerNotFound => {
-                    self.add_error("container not found");
-                    self.containers.clear_container()
-                }
-                EventResponse::InspectImage(image) => self.images.current_image = Some(image),
-                EventResponse::DeleteContainer(res) => match res {
-                    Ok(id) => {
-                        self.add_notification(format!("successfully deleted container {}", id))
-                    }
-                    Err((id, e)) => match e {
-                        docker_api::Error::Fault { code, message } => {
-                            if code.as_u16() == 409 {
-                                self.popups.push_back(ui::ActionPopup::new(
-                                    EventRequest::ForceDeleteContainer { id },
-                                    "Force delete container",
-                                    format!("{}\nAre you sure you want to forcefully delete this container?", message),
-                                ));
-                            } else {
-                                self.add_error(format!(
-                                    "cannot force delete container {}: {}",
-                                    id, message
-                                ));
-                            }
-                        }
-                        _ => self.add_error(e),
-                    },
-                },
-                EventResponse::DeleteImage(res) => match res {
-                    Ok(status) => {
-                        let status = format_status(status);
-                        self.add_notification(status)
-                    }
-                    Err((id, e)) => match e {
-                        docker_api::Error::Fault { code, message } => {
-                            if code.as_u16() == 409 && !message.contains("cannot be forced") {
-                                self.popups.push_back(ui::ActionPopup::new(
-                                    EventRequest::ForceDeleteImage { id },
-                                    "Force delete image",
-                                    format!("{}\n Are you sure you want to forcefully delete this image?", message),
-                                ));
-                            } else {
-                                self.add_error(format!(
-                                    "cannot force delete image {}: {}",
-                                    id, message
-                                ));
-                            }
-                        }
-                        _ => self.add_error(e),
-                    },
-                },
-                EventResponse::ForceDeleteImage(res) => match res {
-                    Ok(status) => {
-                        let status = format_status(status);
-                        self.add_notification(status);
-                    }
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::ForceDeleteContainer(res) => match res {
-                    Ok(id) => {
-                        self.add_notification(format!("successfully deleted container {}", id))
-                    }
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::ContainerStats(new_stats) => {
-                    if let Some(stats) = &mut self.containers.current_stats {
-                        stats.extend(*new_stats);
-                    } else {
-                        self.containers.current_stats = Some(new_stats)
-                    }
-                }
-                EventResponse::ContainerLogs(logs) => {
-                    let raw_bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
-                    let escaped_bytes = strip_ansi_escapes::strip(&raw_bytes).unwrap_or(raw_bytes);
-                    let logs = String::from_utf8_lossy(&escaped_bytes);
-                    if let Some(current_logs) = &mut self.containers.current_logs {
-                        current_logs.push_str(&logs);
-                    } else {
-                        self.containers.current_logs = Some(logs.to_string());
-                    }
-                }
-                EventResponse::StartContainer(res)
-                | EventResponse::StopContainer(res)
-                | EventResponse::PauseContainer(res)
-                | EventResponse::UnpauseContainer(res) => {
-                    if let Err(e) = res {
-                        self.add_error(e);
-                    }
-                }
-                EventResponse::SaveImage(res) => match res {
-                    Ok((id, path)) => self.add_notification(format!(
-                        "successfully exported image {} to tar archive in `{}`",
-                        id,
-                        path.display()
-                    )),
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::PullImage(res) => match res {
-                    Ok(id) => {
-                        self.images.pull_view.in_progress = false;
-                        self.add_notification(format!("successfully pulled image {}", id,))
-                    }
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::PullImageChunks(new_chunks) => {
-                    if let Some(chunks) = &mut self.images.current_pull_chunks {
-                        chunks.extend(new_chunks);
-                    } else {
-                        self.images.current_pull_chunks = Some(new_chunks);
-                    }
-                }
+                EventResponse::Container(event) => self.handle_container_event_response(event),
+                EventResponse::Image(event) => self.handle_image_event_response(event),
                 EventResponse::DockerUriChange(res) => match res {
                     Ok(()) => {
                         self.clear_all();
                         self.add_notification("Successfully changed Docker uri")
-                    }
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::ContainerCreate(res) => match res {
-                    Ok(id) => {
-                        self.add_notification(format!("successfully created container {}", id))
                     }
                     Err(e) => self.add_error(e),
                 },
@@ -523,24 +403,154 @@ impl App {
                     }
                     Err(e) => self.add_error(e),
                 },
-                EventResponse::ContainerRename(res) => match res {
-                    Ok(_) => self.add_notification("successfully renamed a container"),
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::SearchImage(res) => match res {
-                    Ok(mut results) => {
-                        results.sort_by(|a, b| b.star_count.cmp(&a.star_count));
-                        self.images.search_view.images = Some(results)
-                    }
-                    Err(e) => self.add_error(e),
-                },
-                EventResponse::ImportImage(res) => match res {
-                    Ok(path) => {
-                        self.add_notification(format!("successfully imported image `{}`", path))
-                    }
-                    Err(e) => self.add_error(e),
-                },
             }
+        }
+    }
+
+    fn handle_container_event_response(&mut self, event: ContainerEventResponse) {
+        use ContainerEventResponse::*;
+        match event {
+            List(mut containers) => {
+                containers.sort_by(|a, b| b.created.cmp(&a.created));
+                self.containers.containers = containers
+            }
+            Details(container) => self.set_container(container),
+            InspectNotFound => {
+                self.add_error("container not found");
+                self.containers.clear_container()
+            }
+            Delete(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully deleted container {}", id)),
+                Err((id, e)) => match e {
+                    docker_api::Error::Fault { code, message } => {
+                        if code.as_u16() == 409 {
+                            self.popups.push_back(ui::ActionPopup::new(
+                                    EventRequest::Container(ContainerEvent::ForceDelete { id }),
+                                    "Force delete container",
+                                    format!("{}\nAre you sure you want to forcefully delete this container?", message),
+                                ));
+                        } else {
+                            self.add_error(format!(
+                                "cannot force delete container {}: {}",
+                                id, message
+                            ));
+                        }
+                    }
+                    _ => self.add_error(e),
+                },
+            },
+            ForceDelete(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully deleted container {}", id)),
+                Err(e) => self.add_error(e),
+            },
+            Stats(new_stats) => {
+                if let Some(stats) = &mut self.containers.current_stats {
+                    stats.extend(*new_stats);
+                } else {
+                    self.containers.current_stats = Some(new_stats)
+                }
+            }
+            Logs(logs) => {
+                let raw_bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
+                let escaped_bytes = strip_ansi_escapes::strip(&raw_bytes).unwrap_or(raw_bytes);
+                let logs = String::from_utf8_lossy(&escaped_bytes);
+                if let Some(current_logs) = &mut self.containers.current_logs {
+                    current_logs.push_str(&logs);
+                } else {
+                    self.containers.current_logs = Some(logs.to_string());
+                }
+            }
+            Start(res) | Stop(res) | Pause(res) | Unpause(res) => {
+                if let Err(e) = res {
+                    self.add_error(e);
+                }
+            }
+            Create(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully created container {}", id)),
+                Err(e) => self.add_error(e),
+            },
+            Rename(res) => match res {
+                Ok(_) => self.add_notification("successfully renamed a container"),
+                Err(e) => self.add_error(e),
+            },
+        }
+    }
+
+    fn handle_image_event_response(&mut self, event: ImageEventResponse) {
+        use ImageEventResponse::*;
+        match event {
+            List(mut images) => {
+                images.sort_by(|a, b| b.created.cmp(&a.created));
+                self.images.images = images
+            }
+            Inspect(image) => self.images.current_image = Some(image),
+            Delete(res) => {
+                match res {
+                    Ok(status) => {
+                        let status = format_status(status);
+                        self.add_notification(status)
+                    }
+                    Err((id, e)) => match e {
+                        docker_api::Error::Fault { code, message } => {
+                            if code.as_u16() == 409 && !message.contains("cannot be forced") {
+                                self.popups.push_back(ui::ActionPopup::new(
+                                    EventRequest::Image(ImageEvent::ForceDelete { id }),
+                                    "Force delete image",
+                                    format!("{}\n Are you sure you want to forcefully delete this image?", message),
+                                ));
+                            } else {
+                                self.add_error(format!(
+                                    "cannot force delete image {}: {}",
+                                    id, message
+                                ));
+                            }
+                        }
+                        _ => self.add_error(e),
+                    },
+                }
+            }
+            ForceDelete(res) => match res {
+                Ok(status) => {
+                    let status = format_status(status);
+                    self.add_notification(status);
+                }
+                Err(e) => self.add_error(e),
+            },
+            Save(res) => match res {
+                Ok((id, path)) => self.add_notification(format!(
+                    "successfully exported image {} to tar archive in `{}`",
+                    id,
+                    path.display()
+                )),
+                Err(e) => self.add_error(e),
+            },
+            Pull(res) => match res {
+                Ok(id) => {
+                    self.images.pull_view.in_progress = false;
+                    self.add_notification(format!("successfully pulled image {}", id,))
+                }
+                Err(e) => self.add_error(e),
+            },
+            PullChunks(new_chunks) => {
+                if let Some(chunks) = &mut self.images.current_pull_chunks {
+                    chunks.extend(new_chunks);
+                } else {
+                    self.images.current_pull_chunks = Some(new_chunks);
+                }
+            }
+            Search(res) => match res {
+                Ok(mut results) => {
+                    results.sort_by(|a, b| b.star_count.cmp(&a.star_count));
+                    self.images.search_view.images = Some(results)
+                }
+                Err(e) => self.add_error(e),
+            },
+            Import(res) => match res {
+                Ok(path) => {
+                    self.add_notification(format!("successfully imported image `{}`", path))
+                }
+                Err(e) => self.add_error(e),
+            },
         }
     }
 
@@ -588,9 +598,9 @@ impl App {
 
         if changed {
             self.containers.clear_container();
-            self.send_event_notify(EventRequest::ContainerTraceStart {
+            self.send_event_notify(EventRequest::Container(ContainerEvent::TraceStart {
                 id: container.id.clone(),
-            });
+            }));
         }
 
         self.containers.current_container = Some(container);

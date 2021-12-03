@@ -4,7 +4,7 @@ use crate::app::{
     ui::{key, key_val, val},
     App,
 };
-use crate::event::EventRequest;
+use crate::event::{EventRequest, ImageEvent};
 use crate::ImageInspectInfo;
 use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth, SearchResult};
 
@@ -126,7 +126,9 @@ impl App {
                     .show_open_single_file()
                 {
                     Ok(Some(path)) => {
-                        if let Err(e) = self.send_event(EventRequest::ImportImage { path }) {
+                        if let Err(e) =
+                            self.send_event(EventRequest::Image(ImageEvent::Import { path }))
+                        {
                             self.add_error(e);
                         };
                     }
@@ -217,11 +219,11 @@ impl App {
                                                 )
                                                 .clicked()
                                             {
-                                                if let Err(e) =
-                                                    self.send_event(EventRequest::InspectImage {
+                                                if let Err(e) = self.send_event(
+                                                    EventRequest::Image(ImageEvent::Inspect {
                                                         id: image.id.clone(),
-                                                    })
-                                                {
+                                                    }),
+                                                ) {
                                                     errors.push(e);
                                                 };
                                                 view = CentralView::Image;
@@ -232,9 +234,9 @@ impl App {
                                                 .clicked()
                                             {
                                                 popups.push(ui::ActionPopup::new(
-                                                    EventRequest::DeleteImage {
+                                                    EventRequest::Image(ImageEvent::Delete {
                                                         id: image.id.clone(),
-                                                    },
+                                                    }),
                                                     "Delte image",
                                                     format!(
                                                         "Are you sure you want to delete image {}",
@@ -258,10 +260,10 @@ impl App {
                                                 {
                                                     Ok(Some(output_path)) => {
                                                         if let Err(e) = self.send_event(
-                                                            EventRequest::SaveImage {
+                                                            EventRequest::Image(ImageEvent::Save {
                                                                 id: image.id.clone(),
                                                                 output_path,
-                                                            },
+                                                            }),
                                                         ) {
                                                             errors.push(e);
                                                         };
@@ -467,10 +469,10 @@ impl App {
                     } else {
                         None
                     };
-                    self.send_event_notify(EventRequest::PullImage {
+                    self.send_event_notify(EventRequest::Image(ImageEvent::Pull {
                         image: self.images.pull_view.image.clone(),
                         auth,
-                    });
+                    }));
                     self.images.pull_view.in_progress = true;
                     self.images.current_pull_chunks = None;
                 }
@@ -553,9 +555,9 @@ impl App {
                         "Can't search for an empty term. Enter a name of the image to search for",
                     );
                 } else {
-                    self.send_event_notify(EventRequest::SearchImage {
+                    self.send_event_notify(EventRequest::Image(ImageEvent::Search {
                         image: self.images.search_view.image.clone(),
-                    })
+                    }))
                 }
             }
         });
@@ -620,10 +622,10 @@ impl App {
                     for image in images {
                         if ui.button(icon::ARROW_DOWN).clicked() {
                             // #TODO: handle auth
-                            pull_events.push(EventRequest::PullImage {
+                            pull_events.push(EventRequest::Image(ImageEvent::Pull {
                                 image: image.name.clone(),
                                 auth: None,
-                            });
+                            }));
                             self.images.current_pull_chunks = None;
                             self.images.search_view.pull_in_progress = true;
                         }
