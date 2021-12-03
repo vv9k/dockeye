@@ -89,7 +89,7 @@ impl ImageImportWorker {
 
                                 match c {
                                     ImageBuildChunk::Update { stream } => {
-                                        const LOADED_IMAGE: &str = "Loaded image ID";
+                                        const LOADED_IMAGE: &str = "Loaded image ID: ";
                                         if stream.starts_with(LOADED_IMAGE) {
                                             let _ = self.tx_results
                                                 .send(Ok(stream.trim_start_matches(LOADED_IMAGE).to_string()))
