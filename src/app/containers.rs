@@ -949,7 +949,7 @@ impl App {
 
                     let rope = ropey::Rope::from(logs.as_str());
 
-                    let len_lines = logs.lines().count();
+                    let len_lines = rope.len_lines();
                     let max_page = len_lines / PAGE_SIZE;
                     let cur_line = self.containers.logs_page * PAGE_SIZE;
 
