@@ -411,7 +411,10 @@ impl App {
         use ContainerEventResponse::*;
         match event {
             List(mut containers) => {
-                containers.sort_by(|a, b| b.created.cmp(&a.created));
+                containers.sort_by(|a, b| match b.created.cmp(&a.created) {
+                    std::cmp::Ordering::Equal => a.id.cmp(&b.id),
+                    cmp => cmp,
+                });
                 self.containers.containers = containers
             }
             Details(container) => self.set_container(container),
@@ -500,7 +503,10 @@ impl App {
         use ImageEventResponse::*;
         match event {
             List(mut images) => {
-                images.sort_by(|a, b| b.created.cmp(&a.created));
+                images.sort_by(|a, b| match b.created.cmp(&a.created) {
+                    std::cmp::Ordering::Equal => a.id.cmp(&b.id),
+                    cmp => cmp,
+                });
                 self.images.images = images
             }
             Inspect(image) => self.images.current_image = Some(image),
