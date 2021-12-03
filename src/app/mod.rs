@@ -43,11 +43,27 @@ impl Default for Tab {
     }
 }
 
+#[derive(Debug)]
+pub struct Timers {
+    pub update_time: SystemTime,
+    pub data_usage: SystemTime,
+    pub system_inspect: SystemTime,
+}
+
+impl Default for Timers {
+    fn default() -> Self {
+        Self {
+            update_time: SystemTime::now(),
+            data_usage: SystemTime::now(),
+            system_inspect: SystemTime::now(),
+        }
+    }
+}
+
 pub struct App {
     tx_req: mpsc::Sender<EventRequest>,
     rx_rsp: mpsc::Receiver<EventResponse>,
 
-    update_time: SystemTime,
     current_window: egui::Rect,
     errors: VecDeque<(SystemTime, String)>,
 
@@ -60,6 +76,7 @@ pub struct App {
 
     settings_window: SettingsWindow,
     popups: VecDeque<ui::ActionPopup>,
+    timers: Timers,
 }
 
 impl epi::App for App {
@@ -256,8 +273,6 @@ impl App {
             tx_req,
             rx_rsp,
 
-            update_time: SystemTime::now(),
-
             current_tab: Tab::default(),
             current_window: egui::Rect::EVERYTHING,
 
@@ -272,6 +287,7 @@ impl App {
                 ..Default::default()
             },
             popups: VecDeque::new(),
+            timers: Timers::default(),
         }
     }
 
@@ -296,7 +312,38 @@ impl App {
     }
 
     fn send_update_request(&mut self) {
-        let elapsed = self.update_time.elapsed().unwrap_or_default().as_millis();
+        let elapsed = self
+            .timers
+            .update_time
+            .elapsed()
+            .unwrap_or_default()
+            .as_millis();
+
+        if self
+            .timers
+            .system_inspect
+            .elapsed()
+            .unwrap_or_default()
+            .as_secs()
+            > 30
+        {
+            self.send_event_notify(EventRequest::SystemInspect);
+            self.timers.system_inspect = SystemTime::now();
+        }
+
+        if self
+            .timers
+            .data_usage
+            .elapsed()
+            .unwrap_or_default()
+            .as_secs()
+            > 30
+        {
+            self.send_event_notify(EventRequest::SystemDataUsage);
+            self.send_event_notify(EventRequest::SystemInspect);
+            self.timers.data_usage = SystemTime::now();
+        }
+
         match self.current_tab {
             Tab::Containers if elapsed > 1000 => {
                 self.send_event_notify(EventRequest::ListContainers(Some(
@@ -315,25 +362,14 @@ impl App {
                         self.send_event_notify(EventRequest::ContainerStats);
                     }
                 }
-                self.update_time = SystemTime::now();
+                self.timers.update_time = SystemTime::now();
             }
             Tab::Images if elapsed > 1000 => {
                 self.send_event_notify(EventRequest::ListImages(None));
                 if self.images.pull_view.in_progress || self.images.search_view.pull_in_progress {
                     self.send_event_notify(EventRequest::PullImageChunks);
                 }
-                self.update_time = SystemTime::now();
-            }
-            Tab::System if elapsed > 2000 => {
-                match self.system.central_view {
-                    system::CentralView::Home => {
-                        self.send_event_notify(EventRequest::SystemInspect)
-                    }
-                    system::CentralView::DataUsage => {
-                        self.send_event_notify(EventRequest::SystemDataUsage)
-                    }
-                }
-                self.update_time = SystemTime::now();
+                self.timers.update_time = SystemTime::now();
             }
             _ => {}
         }
