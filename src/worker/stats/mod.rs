@@ -1,5 +1,5 @@
 use docker_api::api::{
-    BlkioStats, CpuStats, MemoryStat, MemoryStats, NetworkStats, PidsStats, Stats,
+    BlkioStats, ContainerId, CpuStats, MemoryStat, MemoryStats, NetworkStats, PidsStats, Stats,
 };
 use docker_api::Docker;
 use futures::StreamExt;
@@ -121,7 +121,7 @@ pub enum StatsWorkerEvent {
 pub struct StatsWorker {
     pub rx_events: mpsc::Receiver<StatsWorkerEvent>,
     pub tx_stats: mpsc::Sender<Box<RunningContainerStats>>,
-    pub current_id: String,
+    pub current_id: ContainerId,
     pub prev_cpu: u64,
     pub prev_sys: u64,
     pub stats: Box<RunningContainerStats>,
@@ -130,7 +130,7 @@ pub struct StatsWorker {
 
 impl StatsWorker {
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<ContainerId>,
     ) -> (
         Self,
         mpsc::Sender<StatsWorkerEvent>,

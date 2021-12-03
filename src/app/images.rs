@@ -6,7 +6,7 @@ use crate::app::{
 };
 use crate::event::{EventRequest, ImageEvent};
 use crate::ImageInspectInfo;
-use docker_api::api::{ImageBuildChunk, ImageInfo, RegistryAuth, SearchResult};
+use docker_api::api::{ImageBuildChunk, ImageIdRef, ImageInfo, RegistryAuth, SearchResult};
 
 use anyhow::Error;
 use egui::{Grid, Label, TextEdit};
@@ -23,7 +23,7 @@ pub fn icon() -> Label {
     Label::new(icon::SCROLL).heading().strong()
 }
 
-fn name(id: &str, tags: Option<&Vec<String>>) -> String {
+fn name(id: ImageIdRef, tags: Option<&Vec<String>>) -> String {
     let id = trim_id(id);
     if let Some(tag) = tags.and_then(|v| v.first()) {
         if tag.contains("<none>") {

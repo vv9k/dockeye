@@ -1,5 +1,8 @@
 use anyhow::Error;
-use docker_api::{api::ImageBuildChunk, Docker};
+use docker_api::{
+    api::{ImageBuildChunk, ImageId},
+    Docker,
+};
 use futures::StreamExt;
 use log::error;
 use tokio::sync::mpsc;
@@ -15,7 +18,7 @@ pub enum ImageImportEvent {
 pub struct ImageImportWorker {
     pub image_archive: std::path::PathBuf,
     pub rx_events: mpsc::Receiver<ImageImportEvent>,
-    pub tx_results: mpsc::Sender<anyhow::Result<String>>,
+    pub tx_results: mpsc::Sender<anyhow::Result<ImageId>>,
     pub tx_chunks: mpsc::Sender<Vec<ImageBuildChunk>>,
 }
 
@@ -27,9 +30,9 @@ impl ImageImportWorker {
         Self,
         mpsc::Sender<ImageImportEvent>,
         mpsc::Receiver<Vec<ImageBuildChunk>>,
-        mpsc::Receiver<anyhow::Result<String>>,
+        mpsc::Receiver<anyhow::Result<ImageId>>,
     ) {
-        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<String>>(128);
+        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<ImageId>>(128);
         let (tx_chunks, rx_chunks) = mpsc::channel::<Vec<ImageBuildChunk>>(128);
         let (tx_events, rx_events) = mpsc::channel::<ImageImportEvent>(128);
 

@@ -1,5 +1,8 @@
 use bytes::Bytes;
-use docker_api::{api::LogsOpts, Docker};
+use docker_api::{
+    api::{ContainerId, LogsOpts},
+    Docker,
+};
 use futures::StreamExt;
 use log::{debug, error};
 use tokio::sync::mpsc;
@@ -15,7 +18,7 @@ pub enum LogWorkerEvent {
 
 #[derive(Debug)]
 pub struct LogsWorker {
-    pub current_id: String,
+    pub current_id: ContainerId,
     pub rx_events: mpsc::Receiver<LogWorkerEvent>,
     pub tx_logs: mpsc::Sender<Box<Logs>>,
     pub logs: Box<Logs>,
@@ -23,7 +26,7 @@ pub struct LogsWorker {
 
 impl LogsWorker {
     pub fn new(
-        current_id: impl Into<String>,
+        current_id: impl Into<ContainerId>,
     ) -> (
         Self,
         mpsc::Sender<LogWorkerEvent>,

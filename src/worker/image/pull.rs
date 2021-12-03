@@ -1,6 +1,6 @@
 use anyhow::Error;
 use docker_api::{
-    api::{ImageBuildChunk, PullOpts, RegistryAuth},
+    api::{ImageBuildChunk, ImageId, PullOpts, RegistryAuth},
     Docker,
 };
 use futures::StreamExt;
@@ -16,25 +16,25 @@ pub enum ImagePullEvent {
 
 #[derive(Debug)]
 pub struct ImagePullWorker {
-    pub image_id: String,
+    pub image_id: ImageId,
     pub auth: Option<RegistryAuth>,
     pub rx_events: mpsc::Receiver<ImagePullEvent>,
-    pub tx_results: mpsc::Sender<anyhow::Result<String>>,
+    pub tx_results: mpsc::Sender<anyhow::Result<ImageId>>,
     pub tx_chunks: mpsc::Sender<Vec<ImageBuildChunk>>,
 }
 
 impl ImagePullWorker {
     #[allow(clippy::type_complexity)] // TODO: temporarily
     pub fn new(
-        image_id: String,
+        image_id: ImageId,
         auth: Option<RegistryAuth>,
     ) -> (
         Self,
         mpsc::Sender<ImagePullEvent>,
         mpsc::Receiver<Vec<ImageBuildChunk>>,
-        mpsc::Receiver<anyhow::Result<String>>,
+        mpsc::Receiver<anyhow::Result<ImageId>>,
     ) {
-        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<String>>(128);
+        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<ImageId>>(128);
         let (tx_chunks, rx_chunks) = mpsc::channel::<Vec<ImageBuildChunk>>(128);
         let (tx_events, rx_events) = mpsc::channel::<ImagePullEvent>(128);
 

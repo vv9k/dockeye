@@ -1,9 +1,9 @@
 use crate::worker::{Logs, RunningContainerStats};
 
 use docker_api::api::{
-    ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerListOpts, DataUsage,
-    DeleteStatus, DistributionInspectInfo, History, ImageBuildChunk, ImageDetails, ImageInfo,
-    ImageListOpts, Info, RegistryAuth, SearchResult, Version,
+    ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo, ContainerListOpts,
+    DataUsage, DeleteStatus, DistributionInspectInfo, History, ImageBuildChunk, ImageDetails,
+    ImageId, ImageInfo, ImageListOpts, Info, RegistryAuth, SearchResult, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -82,24 +82,24 @@ pub enum ContainerEventResponse {
     Stats(Box<RunningContainerStats>),
     Logs(Box<Logs>),
     Details(Box<ContainerDetails>),
-    Delete(Result<String, (String, Error)>),
+    Delete(Result<ContainerId, (ContainerId, Error)>),
     Stop(anyhow::Result<()>),
     Unpause(anyhow::Result<()>),
     Pause(anyhow::Result<()>),
     Start(anyhow::Result<()>),
     InspectNotFound,
-    Create(anyhow::Result<String>),
+    Create(anyhow::Result<ContainerId>),
     Rename(anyhow::Result<()>),
-    ForceDelete(anyhow::Result<String>),
+    ForceDelete(anyhow::Result<ContainerId>),
 }
 
 #[derive(Debug)]
 pub enum ImageEventResponse {
     List(Vec<ImageInfo>),
     Inspect(Box<ImageInspectInfo>),
-    Delete(Result<DeleteStatus, (String, Error)>),
-    Save(anyhow::Result<(String, PathBuf)>),
-    Pull(anyhow::Result<String>),
+    Delete(Result<DeleteStatus, (ImageId, Error)>),
+    Save(anyhow::Result<(ImageId, PathBuf)>),
+    Pull(anyhow::Result<ImageId>),
     PullChunks(Vec<ImageBuildChunk>),
     Search(anyhow::Result<Vec<SearchResult>>),
     ForceDelete(anyhow::Result<DeleteStatus>),

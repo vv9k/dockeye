@@ -1,5 +1,5 @@
 use anyhow::Error;
-use docker_api::Docker;
+use docker_api::{api::ImageId, Docker};
 use futures::StreamExt;
 use log::error;
 use std::fs::OpenOptions;
@@ -15,23 +15,23 @@ pub enum ImageExportEvent {
 
 #[derive(Debug)]
 pub struct ImageExportWorker {
-    pub image_id: String,
+    pub image_id: ImageId,
     pub output_path: PathBuf,
     pub rx_events: mpsc::Receiver<ImageExportEvent>,
-    pub tx_results: mpsc::Sender<anyhow::Result<(String, PathBuf)>>,
+    pub tx_results: mpsc::Sender<anyhow::Result<(ImageId, PathBuf)>>,
 }
 
 impl ImageExportWorker {
     #[allow(clippy::type_complexity)] // TODO: temporarily
     pub fn new(
-        image_id: String,
+        image_id: ImageId,
         output_path: PathBuf,
     ) -> (
         Self,
         mpsc::Sender<ImageExportEvent>,
-        mpsc::Receiver<anyhow::Result<(String, PathBuf)>>,
+        mpsc::Receiver<anyhow::Result<(ImageId, PathBuf)>>,
     ) {
-        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<(String, PathBuf)>>(128);
+        let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<(ImageId, PathBuf)>>(128);
         let (tx_events, rx_events) = mpsc::channel::<ImageExportEvent>(128);
 
         (

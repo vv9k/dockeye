@@ -7,7 +7,9 @@ use crate::app::{
 use crate::event::{ContainerEvent, EventRequest};
 use crate::worker::RunningContainerStats;
 
-use docker_api::api::{ContainerCreateOpts, ContainerDetails, ContainerInfo, ContainerStatus};
+use docker_api::api::{
+    ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo, ContainerStatus,
+};
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
@@ -183,7 +185,7 @@ impl ContainerCreateData {
 #[derive(Debug, Default)]
 pub struct RenameWindow {
     pub show: bool,
-    pub id: String,
+    pub id: ContainerId,
     pub new_name: String,
 }
 
