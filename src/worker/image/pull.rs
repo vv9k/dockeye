@@ -81,24 +81,6 @@ impl ImagePullWorker {
                                 chunks.push(chunk);
 
                                 match c {
-                                    ImageBuildChunk::Error { error, error_detail: _ } => {
-                                        if let Err(e) = self.tx_results.send(
-                                            Err(Error::msg(format!("failed to pull image {}: {}", self.image_id, error)))
-                                        ).await {
-                                            error!("failed to send error result: {}", e);
-                                        }
-
-                                        send_chunks!();
-                                        break;
-                                    }
-                                    ImageBuildChunk::Digest { aux } => {
-                                        let _ = self.tx_results
-                                            .send(Ok(aux.id.clone()))
-                                            .await;
-
-                                        send_chunks!();
-                                        break;
-                                    }
                                     ImageBuildChunk::PullStatus { status, ..} => {
                                         if status.contains("Digest:") {
                                             let _ = self.tx_results

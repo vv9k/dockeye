@@ -1,11 +1,12 @@
-mod image_export;
-mod image_pull;
+mod image;
 mod logs;
 mod stats;
 
 use crate::event::{EventRequest, EventResponse, ImageInspectInfo, SystemInspectInfo};
-pub use image_export::{ImageExportEvent, ImageExportWorker};
-pub use image_pull::{ImagePullEvent, ImagePullWorker};
+pub use image::{
+    export::{ImageExportEvent, ImageExportWorker},
+    pull::{ImagePullEvent, ImagePullWorker},
+};
 pub use logs::{LogWorkerEvent, Logs, LogsWorker};
 pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
