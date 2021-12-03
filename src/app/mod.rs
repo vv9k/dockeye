@@ -473,6 +473,26 @@ impl App {
                 Ok(_) => self.add_notification("successfully renamed a container"),
                 Err(e) => self.add_error(e),
             },
+            Prune(res) => match res {
+                Ok(info) => {
+                    let deleted = info.containers_deleted.into_iter().fold(
+                        "Deleted:\n".to_string(),
+                        |mut acc, c| {
+                            acc.push_str(" - ");
+                            acc.push_str(&c);
+                            acc.push('\n');
+                            acc
+                        },
+                    );
+                    self.add_notification(format!(
+                        "Space reclaimed: {}\n\n{}",
+                        crate::conv_b(info.space_reclaimed as u64),
+                        deleted
+                    ));
+                    self.send_event_notify(EventRequest::SystemDataUsage);
+                }
+                Err(e) => self.add_error(e),
+            },
         }
     }
 
@@ -580,6 +600,7 @@ impl App {
                         untagged,
                         deleted
                     ));
+                    self.send_event_notify(EventRequest::SystemDataUsage);
                 }
                 Err(e) => self.add_error(e),
             },

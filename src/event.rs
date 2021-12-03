@@ -2,8 +2,9 @@ use crate::worker::{Logs, RunningContainerStats};
 
 use docker_api::api::{
     ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo, ContainerListOpts,
-    DataUsage, DeleteStatus, DistributionInspectInfo, History, ImageBuildChunk, ImageDetails,
-    ImageId, ImageInfo, ImageListOpts, ImagesPruneInfo, Info, RegistryAuth, SearchResult, Version,
+    ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo, History,
+    ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts, ImagesPruneInfo, Info,
+    RegistryAuth, SearchResult, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -36,6 +37,7 @@ pub enum ContainerEvent {
     Create(ContainerCreateOpts),
     Rename { id: String, name: String },
     ForceDelete { id: String },
+    Prune,
 }
 
 #[derive(Debug)]
@@ -92,6 +94,7 @@ pub enum ContainerEventResponse {
     Create(anyhow::Result<ContainerId>),
     Rename(anyhow::Result<()>),
     ForceDelete(anyhow::Result<ContainerId>),
+    Prune(anyhow::Result<ContainersPruneInfo>),
 }
 
 #[derive(Debug)]

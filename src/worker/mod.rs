@@ -303,6 +303,21 @@ impl DockerWorker {
                                     ),
                                 }
                             }
+                            ContainerEvent::Prune => {
+                                match docker
+                                    .containers()
+                                    .prune(&Default::default())
+                                    .await
+                                    .context("pruning containers failed")
+                                {
+                                    Ok(info) => EventResponse::Container(
+                                        ContainerEventResponse::Prune(Ok(info)),
+                                    ),
+                                    Err(e) => EventResponse::Container(
+                                        ContainerEventResponse::Prune(Err(e)),
+                                    ),
+                                }
+                            }
                         },
                         EventRequest::Image(event) => match event {
                             ImageEvent::List(opts) => {

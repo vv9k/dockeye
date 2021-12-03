@@ -256,7 +256,7 @@ impl App {
     }
 
     fn containers_menu(&mut self, ui: &mut egui::Ui) {
-        egui::Grid::new("containers_menu").show(ui, |ui| {
+        egui::Grid::new("containers_tab_menu").show(ui, |ui| {
             ui.selectable_value(
                 &mut self.containers.central_view,
                 CentralView::None,
@@ -267,6 +267,15 @@ impl App {
                 CentralView::Create,
                 "create",
             );
+        });
+        egui::Grid::new("containers_button_menu").show(ui, |ui| {
+            if ui.button("prune").clicked() {
+                self.popups.push_back(ui::ActionPopup::new(
+                    EventRequest::Container(ContainerEvent::Prune),
+                    "Delete stopped containers",
+                    "Are you sure you want to delete all stopped containers?",
+                ));
+            }
         });
     }
 

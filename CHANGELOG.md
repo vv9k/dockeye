@@ -15,4 +15,5 @@
 - Add a search view that allows easy image pull from Docker Hub
 - Add ability to forcefully delete image/container when docker returns an error
 - Add image import button to load images from an archive
-- Add image prune button to remove unused images
+- Add images prune button to remove unused images
+- Add containers prune button to remove all stopped containers
