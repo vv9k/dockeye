@@ -534,6 +534,12 @@ impl App {
                     }
                     Err(e) => self.add_error(e),
                 },
+                EventResponse::ImportImage(res) => match res {
+                    Ok(path) => {
+                        self.add_notification(format!("successfully imported image `{}`", path))
+                    }
+                    Err(e) => self.add_error(e),
+                },
             }
         }
     }
