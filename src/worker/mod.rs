@@ -321,7 +321,9 @@ impl DockerWorker {
                         },
                         EventRequest::Image(event) => match event {
                             ImageEvent::List(opts) => {
-                                let opts = opts.unwrap_or_default();
+                                let opts = opts.unwrap_or_else(|| {
+                                    ImageListOpts::builder().all(true).digests(true).build()
+                                });
                                 match docker.images().list(&opts).await {
                                     Ok(images) => {
                                         EventResponse::Image(ImageEventResponse::List(images))
