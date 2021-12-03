@@ -551,6 +551,38 @@ impl App {
                 }
                 Err(e) => self.add_error(e),
             },
+            Prune(res) => match res {
+                Ok(info) => {
+                    let (untagged, deleted) = info
+                        .images_deleted
+                        .map(|images| {
+                            images.into_iter().fold(
+                                ("Untagged:\n".to_string(), "Deleted:\n".to_string()),
+                                |(mut untagged, mut deleted), i| {
+                                    if let Some(u) = i.untagged {
+                                        untagged.push_str(" - ");
+                                        untagged.push_str(&u);
+                                        untagged.push('\n');
+                                    }
+                                    if let Some(d) = i.deleted {
+                                        deleted.push_str(" - ");
+                                        deleted.push_str(&d);
+                                        deleted.push('\n');
+                                    }
+                                    (untagged, deleted)
+                                },
+                            )
+                        })
+                        .unwrap_or_default();
+                    self.add_notification(format!(
+                        "Space reclaimed: {}\n\n{}\n{}",
+                        crate::conv_b(info.space_reclaimed as u64),
+                        untagged,
+                        deleted
+                    ));
+                }
+                Err(e) => self.add_error(e),
+            },
         }
     }
 

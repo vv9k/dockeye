@@ -16,7 +16,7 @@ pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
 use anyhow::{Context, Result};
 use docker_api::{
-    api::{RmContainerOpts, RmImageOpts},
+    api::{ImagePruneOpts, ImagesPruneFilter, RmContainerOpts, RmImageOpts},
     Docker,
 };
 use log::{debug, error, trace};
@@ -427,6 +427,25 @@ impl DockerWorker {
                                     ),
                                     Err(e) => {
                                         EventResponse::Image(ImageEventResponse::Search(Err(e)))
+                                    }
+                                }
+                            }
+                            ImageEvent::Prune => {
+                                match docker
+                                    .images()
+                                    .prune(
+                                        &ImagePruneOpts::builder()
+                                            .filter([ImagesPruneFilter::Dangling(false)])
+                                            .build(),
+                                    )
+                                    .await
+                                    .context("pruning images failed")
+                                {
+                                    Ok(info) => {
+                                        EventResponse::Image(ImageEventResponse::Prune(Ok(info)))
+                                    }
+                                    Err(e) => {
+                                        EventResponse::Image(ImageEventResponse::Prune(Err(e)))
                                     }
                                 }
                             }
