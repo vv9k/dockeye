@@ -14,3 +14,4 @@
 - Add a way to rename a container
 - Add a search view that allows easy image pull from Docker Hub
 - Add ability to forcefully delete image/container when docker returns an error
+- Add image import button to load images from an archive
