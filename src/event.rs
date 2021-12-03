@@ -77,6 +77,7 @@ pub enum EventRequest {
     DockerUriChange { uri: String },
     SystemInspect,
     SystemDataUsage,
+    NotifyGui(GuiEvent),
 }
 
 #[derive(Debug)]
@@ -118,4 +119,23 @@ pub enum EventResponse {
     DockerUriChange(anyhow::Result<()>),
     SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
+    NotifyGui(GuiEventResponse),
+}
+
+#[derive(Debug)]
+pub enum GuiEvent {
+    SetTab(crate::app::Tab),
+}
+
+#[derive(Debug)]
+pub enum GuiEventResponse {
+    SetTab(crate::app::Tab),
+}
+
+impl From<GuiEvent> for GuiEventResponse {
+    fn from(event: GuiEvent) -> Self {
+        match event {
+            GuiEvent::SetTab(tab) => Self::SetTab(tab),
+        }
+    }
 }

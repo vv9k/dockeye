@@ -16,7 +16,7 @@ pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
 use anyhow::{Context, Result};
 use docker_api::{
-    api::{ImagePruneOpts, ImagesPruneFilter, RmContainerOpts, RmImageOpts},
+    api::{ImageListOpts, ImagePruneOpts, ImagesPruneFilter, RmContainerOpts, RmImageOpts},
     Docker,
 };
 use log::{debug, error, trace};
@@ -539,6 +539,7 @@ impl DockerWorker {
                                 Err(e) => EventResponse::SystemDataUsage(Err(e)),
                             }
                         }
+                        EventRequest::NotifyGui(event) => EventResponse::NotifyGui(event.into()),
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

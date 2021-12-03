@@ -6,8 +6,8 @@ mod system;
 mod ui;
 
 use crate::event::{
-    ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
-    ImageEventResponse,
+    ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, GuiEventResponse,
+    ImageEvent, ImageEventResponse,
 };
 use containers::ContainersTab;
 use images::ImagesTab;
@@ -402,6 +402,21 @@ impl App {
                         self.system.data_usage = Some(usage);
                     }
                     Err(e) => self.add_error(e),
+                },
+                EventResponse::NotifyGui(event) => match event {
+                    GuiEventResponse::SetTab(tab) => {
+                        self.current_tab = tab;
+                        match tab {
+                            Tab::Containers => {
+                                self.containers.central_view = containers::CentralView::Container;
+                                self.containers.container_view = containers::ContainerView::Details;
+                            }
+                            Tab::Images => {
+                                self.images.central_view = images::CentralView::Image;
+                            }
+                            _ => {}
+                        }
+                    }
                 },
             }
         }
