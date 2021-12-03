@@ -4,7 +4,7 @@ use crate::app::{
     ui::{key, key_val, val},
     App,
 };
-use crate::event::{EventRequest, ImageEvent};
+use crate::event::{EventRequest, GuiEvent, ImageEvent};
 use crate::ImageInspectInfo;
 use docker_api::api::{ImageBuildChunk, ImageIdRef, ImageInfo, RegistryAuth, SearchResult};
 
@@ -90,6 +90,31 @@ impl ImagesTab {
 }
 
 impl App {
+    pub fn link_image(&self, ui: &mut egui::Ui, id: ImageIdRef, name: Option<&str>) {
+        if ui
+            .add(
+                egui::Label::new(
+                    name.map(|n| n.trim_start_matches('/'))
+                        .unwrap_or_else(|| trim_id(id)),
+                )
+                .strong()
+                .sense(egui::Sense {
+                    click: true,
+                    focusable: true,
+                    drag: false,
+                }),
+            )
+            .on_hover_text("click to follow")
+            .clicked()
+        {
+            let _ = self.send_event(EventRequest::Image(ImageEvent::Inspect {
+                id: id.to_string(),
+            }));
+            let _ = self.send_event(EventRequest::NotifyGui(GuiEvent::SetTab(
+                crate::app::Tab::Images,
+            )));
+        }
+    }
     pub fn images_view(&mut self, ui: &mut egui::Ui) {
         match self.images.central_view {
             CentralView::Image => self.image_details(ui),
@@ -329,7 +354,10 @@ impl App {
                     ui.end_row();
                 }
 
-                key_val!(ui, "Parent:", &details.parent);
+                key!(ui, "Parent:");
+                self.link_image(ui, &details.parent, None);
+                ui.end_row();
+
                 key_val!(ui, "Comment:", &details.comment);
                 key_val!(ui, "Author:", &details.author);
                 key_val!(ui, "Created:", &details.created.to_rfc2822());

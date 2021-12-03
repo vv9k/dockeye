@@ -18,3 +18,4 @@
 - Add images prune button to remove unused images
 - Add containers prune button to remove all stopped containers
 - Add a way to follow container logs, the logs are now paginated
+- Make container and image ids open their respective page with details

@@ -4,11 +4,12 @@ use crate::app::{
     ui::{color, key, key_val, val},
     App,
 };
-use crate::event::{ContainerEvent, EventRequest};
+use crate::event::{ContainerEvent, EventRequest, GuiEvent};
 use crate::worker::RunningContainerStats;
 
 use docker_api::api::{
-    ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo, ContainerStatus,
+    ContainerCreateOpts, ContainerDetails, ContainerId, ContainerIdRef, ContainerInfo,
+    ContainerStatus,
 };
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
@@ -241,6 +242,29 @@ impl ContainersTab {
 }
 
 impl App {
+    pub fn link_container(&self, ui: &mut egui::Ui, id: ContainerIdRef, name: Option<&str>) {
+        if ui
+            .add(
+                egui::Label::new(name.map(|n| n.trim_start_matches('/')).unwrap_or(id))
+                    .strong()
+                    .sense(egui::Sense {
+                        click: true,
+                        focusable: true,
+                        drag: false,
+                    }),
+            )
+            .on_hover_text("click to follow")
+            .clicked()
+        {
+            let _ = self.send_event(EventRequest::Container(ContainerEvent::TraceStart {
+                id: id.to_string(),
+            }));
+            let _ = self.send_event(EventRequest::NotifyGui(GuiEvent::SetTab(
+                crate::app::Tab::Containers,
+            )));
+        }
+    }
+
     pub fn containers_side(&mut self, ui: &mut egui::Ui) {
         ui.vertical(|ui| {
             self.containers_menu(ui);
@@ -336,14 +360,9 @@ impl App {
                                                     );
                                                 }
                                             });
-                                            let image = if container.image.starts_with("sha256") {
-                                                &container.image.trim_start_matches("sha256:")[..12]
-                                            } else {
-                                                container.image.as_str()
-                                            };
                                             ui.end_row();
                                             ui.add_space(5.);
-                                            ui.add(Label::new(image).italics().strong().wrap(true));
+                                            self.link_image(ui, &container.image, None);
                                             ui.end_row();
 
                                             ui.add_space(5.);
@@ -573,7 +592,11 @@ impl App {
     fn container_info(&self, ui: &mut egui::Ui, container: &ContainerDetails) {
         Grid::new("container_info").show(ui, |ui| {
             key_val!(ui, "ID:", &container.id);
-            key_val!(ui, "Image:", &container.image);
+
+            key!(ui, "Image:");
+            self.link_image(ui, &container.image, None);
+            ui.end_row();
+
             key_val!(
                 ui,
                 "Command:",
