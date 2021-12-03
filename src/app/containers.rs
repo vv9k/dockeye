@@ -204,6 +204,7 @@ pub struct ContainersTab {
     pub central_view: CentralView,
     pub current_logs: Option<String>,
     pub logs_page: usize,
+    pub follow_logs: bool,
     pub create_data: ContainerCreateData,
     pub rename_window: RenameWindow,
 }
@@ -218,6 +219,7 @@ impl Default for ContainersTab {
             central_view: CentralView::default(),
             current_logs: None,
             logs_page: 0,
+            follow_logs: false,
             create_data: ContainerCreateData::default(),
             rename_window: RenameWindow::default(),
         }
@@ -934,6 +936,7 @@ impl App {
     }
 
     fn container_logs(&mut self, ui: &mut egui::Ui) {
+        const PAGE_SIZE: usize = 1024;
         if let Some(logs) = &self.containers.current_logs {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
@@ -943,12 +946,37 @@ impl App {
                     } else {
                         *color::L_BG_4
                     };
-                    Frame::none().fill(color).show(ui, |ui| {
+
+                    let rope = ropey::Rope::from(logs.as_str());
+
+                    let len_lines = rope.len_lines();
+                    let max_page = len_lines / PAGE_SIZE;
+                    let cur_line = self.containers.logs_page * PAGE_SIZE;
+
+                    let mut slice = if self.containers.follow_logs {
+                        self.containers.logs_page = max_page;
+                        &logs[rope.line_to_byte(len_lines.saturating_sub(PAGE_SIZE))..]
+                    } else if cur_line + PAGE_SIZE > len_lines {
+                        &logs[rope.line_to_byte(cur_line - (cur_line + PAGE_SIZE - len_lines))..]
+                    } else {
+                        &logs[rope.line_to_byte(cur_line)..rope.line_to_byte(cur_line + PAGE_SIZE)]
+                    };
+
+                    let mut page = self.containers.logs_page as f32;
+                    ui.horizontal(|ui| {
                         ui.add(
-                            egui::TextEdit::multiline(&mut logs.as_str())
-                                .code_editor()
-                                .desired_width(f32::INFINITY),
+                            egui::DragValue::new(&mut page)
+                                .clamp_range(0..=max_page)
+                                .fixed_decimals(0)
+                                .speed(1.),
                         );
+                        ui.checkbox(&mut self.containers.follow_logs, "Follow logs");
+                    });
+                    self.containers.logs_page = page as usize;
+
+                    Frame::none().fill(color).show(ui, |ui| {
+                        ui.allocate_space((ui.available_rect_before_wrap().width(), 0.).into());
+                        ui.text_edit_multiline(&mut slice);
                     });
                 });
         }

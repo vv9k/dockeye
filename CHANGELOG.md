@@ -17,3 +17,4 @@
 - Add image import button to load images from an archive
 - Add images prune button to remove unused images
 - Add containers prune button to remove all stopped containers
+- Add a way to follow container logs, the logs are now paginated
