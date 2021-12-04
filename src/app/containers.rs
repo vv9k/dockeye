@@ -980,7 +980,10 @@ impl App {
                         self.containers.logs_page = max_page;
                         &logs[rope.line_to_byte(len_lines.saturating_sub(PAGE_SIZE))..]
                     } else if cur_line + PAGE_SIZE > len_lines {
-                        &logs[rope.line_to_byte(cur_line - (cur_line + PAGE_SIZE - len_lines))..]
+                        let start_idx = rope.line_to_byte(
+                            cur_line.saturating_sub(cur_line + PAGE_SIZE - len_lines),
+                        );
+                        &logs[start_idx..]
                     } else {
                         &logs[rope.line_to_byte(cur_line)..rope.line_to_byte(cur_line + PAGE_SIZE)]
                     };
