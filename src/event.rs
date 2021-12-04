@@ -4,7 +4,7 @@ use docker_api::api::{
     ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts, ImagesPruneInfo,
-    Info, RegistryAuth, SearchResult, Version,
+    Info, RegistryAuth, SearchResult, TagOpts, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -69,6 +69,10 @@ pub enum ImageEvent {
     PullChunks,
     Prune,
     ClearCache,
+    Tag {
+        id: String,
+        opts: TagOpts,
+    },
 }
 
 #[derive(Debug)]
@@ -112,6 +116,7 @@ pub enum ImageEventResponse {
     Import(anyhow::Result<String>),
     Prune(anyhow::Result<ImagesPruneInfo>),
     ClearCache(anyhow::Result<ClearCacheInfo>),
+    Tag(anyhow::Result<()>),
 }
 
 #[derive(Debug)]

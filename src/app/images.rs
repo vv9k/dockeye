@@ -6,7 +6,9 @@ use crate::app::{
 };
 use crate::event::{EventRequest, GuiEvent, ImageEvent};
 use crate::ImageInspectInfo;
-use docker_api::api::{ImageBuildChunk, ImageIdRef, ImageInfo, RegistryAuth, SearchResult};
+use docker_api::api::{
+    ImageBuildChunk, ImageIdRef, ImageInfo, RegistryAuth, SearchResult, TagOpts,
+};
 
 use anyhow::Error;
 use egui::{Grid, Label, TextEdit};
@@ -37,6 +39,19 @@ fn name(id: ImageIdRef, tags: Option<&Vec<String>>) -> String {
 }
 
 #[derive(Debug, Default)]
+pub struct TagWindow {
+    pub show: bool,
+    pub repo: String,
+    pub tag: String,
+}
+
+impl TagWindow {
+    pub fn toggle(&mut self) {
+        self.show = !self.show;
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct SearchView {
     pub image: String,
     pub images: Option<Vec<SearchResult>>,
@@ -59,7 +74,13 @@ pub enum CentralView {
     None,
 }
 
-#[derive(Debug)]
+impl Default for CentralView {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct ImagesTab {
     pub images: Vec<ImageInfo>,
     pub current_image: Option<Box<ImageInspectInfo>>,
@@ -67,19 +88,9 @@ pub struct ImagesTab {
     pub central_view: CentralView,
     pub pull_view: PullView,
     pub search_view: SearchView,
+    pub tag_window: TagWindow,
 }
-impl Default for ImagesTab {
-    fn default() -> Self {
-        Self {
-            images: vec![],
-            current_image: None,
-            current_pull_chunks: None,
-            central_view: CentralView::None,
-            pull_view: PullView::default(),
-            search_view: SearchView::default(),
-        }
-    }
-}
+
 impl ImagesTab {
     pub fn clear(&mut self) {
         self.images.clear();
@@ -122,6 +133,7 @@ impl App {
             CentralView::Search => self.images_search(ui),
             CentralView::None => {}
         }
+        self.display_tag_window(ui);
     }
 
     pub fn images_side(&mut self, ui: &mut egui::Ui) {
@@ -331,7 +343,7 @@ impl App {
         self.images.central_view = view;
     }
 
-    fn image_details(&self, ui: &mut egui::Ui) {
+    fn image_details(&mut self, ui: &mut egui::Ui) {
         if let Some(image) = &self.images.current_image {
             ui.allocate_space((f32::INFINITY, 0.).into());
             let details = &image.details;
@@ -344,11 +356,13 @@ impl App {
                         .wrap(true)
                         .strong(),
                 );
+                if ui.button("tag").clicked() {
+                    self.images.tag_window.toggle();
+                }
             });
             ui.add_space(25.);
 
             Grid::new("image_details").show(ui, |ui| {
-                //ui.allocate_space((f32::INFINITY, 0.).into());
                 key!(ui, "Tags:");
                 ui.end_row();
                 if !details.repo_tags.is_empty() {
@@ -686,6 +700,49 @@ impl App {
         }
         for event in pull_events {
             self.send_event_notify(event);
+        }
+    }
+
+    fn display_tag_window(&mut self, ui: &mut egui::Ui) {
+        if self.images.tag_window.show {
+            egui::Window::new("Tag this image").show(ui.ctx(), |ui| {
+                key!(ui, "Repository:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.images.tag_window.repo)
+                        .desired_width(200.),
+                );
+                key!(ui, "Tag:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.images.tag_window.tag).desired_width(200.),
+                );
+
+                Grid::new("tag_window_buttons").show(ui, |ui| {
+                    if ui.button("OK").clicked() {
+                        if self.images.tag_window.tag.is_empty() {
+                            self.add_error("Tag can't be empty");
+                        } else {
+                            let mut opts = TagOpts::builder().tag(&self.images.tag_window.tag);
+                            if !self.images.tag_window.repo.is_empty() {
+                                opts = opts.repo(&self.images.tag_window.repo);
+                            }
+                            self.send_event_notify(EventRequest::Image(ImageEvent::Tag {
+                                id: self
+                                    .images
+                                    .current_image
+                                    .as_ref()
+                                    .map(|i| i.details.id.clone())
+                                    .unwrap_or_default(),
+                                opts: opts.build(),
+                            }));
+                        }
+                    }
+
+                    if ui.button("close").clicked() {
+                        self.images.tag_window.toggle();
+                    }
+                    ui.end_row();
+                });
+            });
         }
     }
 }

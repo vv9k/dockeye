@@ -657,6 +657,10 @@ impl App {
                 }
                 Err(e) => self.add_error(e),
             },
+            Tag(res) => match res {
+                Ok(_) => self.add_notification("successfully tagged image"),
+                Err(e) => self.add_error(e),
+            },
         }
     }
 

@@ -484,6 +484,18 @@ impl DockerWorker {
                                     }
                                 }
                             }
+                            ImageEvent::Tag { id, opts } => {
+                                match docker
+                                    .images()
+                                    .get(&id)
+                                    .tag(&opts)
+                                    .await
+                                    .context("tagging image failed")
+                                {
+                                    Ok(_) => EventResponse::Image(ImageEventResponse::Tag(Ok(()))),
+                                    Err(e) => EventResponse::Image(ImageEventResponse::Tag(Err(e))),
+                                }
+                            }
                         },
                         EventRequest::DockerUriChange { uri } => {
                             if uri == current_uri {
