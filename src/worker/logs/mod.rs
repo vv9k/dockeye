@@ -65,23 +65,22 @@ impl LogsWorker {
         loop {
             tokio::select! {
                 log_data = logs_stream.next() => {
-                    if let Some(data) = log_data {
-                        match data {
-                            Ok(chunk) => {
+                    match log_data {
+                        Some(Ok(chunk)) => {
                             log::trace!("adding chunk");
-                                self.logs.0.push(chunk);
-                            }
-                            Err(e) => {
-                                match e {
-                                    docker_api::Error::Fault {
-                                        code: http::status::StatusCode::NOT_FOUND, message: _
-                                    } => break,
-                                    e => error!("failed to read container logs: {}", e),
-                                }
+                            self.logs.0.push(chunk);
+                        }
+                        Some(Err(e)) => {
+                            match e {
+                                docker_api::Error::Fault {
+                                    code: http::status::StatusCode::NOT_FOUND, message: _
+                                } => break,
+                                e => error!("failed to read container logs: {}", e),
                             }
                         }
-                    } else {
-                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        None => {
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        }
                     }
                 }
                 event = self.rx_events.recv() => {

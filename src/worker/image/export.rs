@@ -69,34 +69,33 @@ impl ImageExportWorker {
         loop {
             tokio::select! {
                 bytes = export_stream.next() => {
-                    if let Some(data) = bytes {
-                        match data {
-                            Ok(chunk) => {
-                                log::trace!("saving image export chunk");
-                                if let Err(e) = export_file.write(&chunk) {
-                                    error!("{}", e);
-                                    break;
-                                }
-                            }
-                            Err(e) => {
-                                match e {
-                                    docker_api::Error::Fault {
-                                        code: http::status::StatusCode::NOT_FOUND, message: _
-                                    } => break,
-                                    e => error!("failed to read image export chunk: {}", e),
-                                }
+                    match bytes {
+                        Some(Ok(chunk)) => {
+                            log::trace!("saving image export chunk");
+                            if let Err(e) = export_file.write(&chunk) {
+                                error!("{}", e);
+                                break;
                             }
                         }
-                    } else {
-                        log::trace!(
-                                "image `{}` export finished successfuly",
-                                self.image_id
-                        );
-                        let Self { image_id, tx_results, output_path, .. }  = self;
-                        let _ = tx_results
-                            .send(Ok((image_id, output_path)))
-                            .await;
-                        return;
+                        Some(Err(e)) => {
+                            match e {
+                                docker_api::Error::Fault {
+                                    code: http::status::StatusCode::NOT_FOUND, message: _
+                                } => break,
+                                e => error!("failed to read image export chunk: {}", e),
+                            }
+                        }
+                        None => {
+                            log::trace!(
+                                    "image `{}` export finished successfuly",
+                                    self.image_id
+                            );
+                            let Self { image_id, tx_results, output_path, .. }  = self;
+                            let _ = tx_results
+                                .send(Ok((image_id, output_path)))
+                                .await;
+                            return;
+                        }
                     }
                 }
                 event = self.rx_events.recv() => {

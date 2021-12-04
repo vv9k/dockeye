@@ -81,9 +81,8 @@ impl ImageImportWorker {
         loop {
             tokio::select! {
                 chunk = import_stream.next() => {
-                    if let Some(chunk) = chunk {
                         match chunk {
-                            Ok(chunk) => {
+                            Some(Ok(chunk)) => {
                                 log::trace!("{:?}", chunk);
                                 let c = chunk.clone();
 
@@ -113,7 +112,7 @@ impl ImageImportWorker {
                                     _ => {}
                                 };
                             }
-                            Err(e) => {
+                            Some(Err(e)) => {
                                 match e {
                                     docker_api::Error::Fault {
                                         code: http::status::StatusCode::NOT_FOUND, message: _
@@ -121,8 +120,7 @@ impl ImageImportWorker {
                                     e => error!("failed to read image import chunk: {}", e),
                                 }
                             }
-                    }
-                } else {
+                            None => {
                         log::trace!(
                                 "image `{}` import finished successfuly",
                                 self.image_archive.display()
@@ -132,6 +130,7 @@ impl ImageImportWorker {
                             .send(Ok(image_archive.to_string_lossy().to_string()))
                             .await;
                         return;
+                            }
                     }
                 }
                 event = self.rx_events.recv() => {

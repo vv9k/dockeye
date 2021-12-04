@@ -168,31 +168,29 @@ impl StatsWorker {
             tokio::select! {
                 data = stats.next() => {
                     match data {
-                        Some(data) => match data {
-                            Ok(data) => {
-                                trace!("adding datapoint");
-                                let (_cpu, _sys) = data.precpu_stats.as_ref()
-                                    .map(|data|
-                                        (data.cpu_usage.total_usage, data.system_cpu_usage.unwrap_or_default())
-                                ).unwrap_or_default();
+                        Some(Ok(data)) => {
+                            trace!("adding datapoint");
+                            let (_cpu, _sys) = data.precpu_stats.as_ref()
+                                .map(|data|
+                                    (data.cpu_usage.total_usage, data.system_cpu_usage.unwrap_or_default())
+                            ).unwrap_or_default();
 
-                                self.stats.0.push(
-                                    (
-                                        self.timer.elapsed().unwrap_or_default(),
-                                        StatsWrapper::from(data, self.prev_cpu, self.prev_sys)
-                                    )
-                                );
-                                self.prev_cpu = _cpu;
-                                self.prev_sys = _sys;
+                            self.stats.0.push(
+                                (
+                                    self.timer.elapsed().unwrap_or_default(),
+                                    StatsWrapper::from(data, self.prev_cpu, self.prev_sys)
+                                )
+                            );
+                            self.prev_cpu = _cpu;
+                            self.prev_sys = _sys;
+                        }
+                        Some(Err(e)) => {
+                            match e {
+                                docker_api::Error::Fault {
+                                    code: http::status::StatusCode::NOT_FOUND, message: _
+                                } => break,
+                                e => error!("failed to check container stats: {}", e),
                             }
-                            Err(e) => {
-                                match e {
-                                    docker_api::Error::Fault {
-                                        code: http::status::StatusCode::NOT_FOUND, message: _
-                                    } => break,
-                                    e => error!("failed to check container stats: {}", e),
-                                }
-                            },
                         },
                         None => {
                             log::trace!("no container stats available");

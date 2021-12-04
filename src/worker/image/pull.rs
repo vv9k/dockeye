@@ -71,52 +71,51 @@ impl ImagePullWorker {
         loop {
             tokio::select! {
                 chunk = pull_stream.next() => {
-                    if let Some(chunk) = chunk {
-                        match chunk {
-                            Ok(chunk) => {
-                                log::trace!("{:?}", chunk);
-                                let c = chunk.clone();
+                    match chunk {
+                        Some(Ok(chunk)) => {
+                            log::trace!("{:?}", chunk);
+                            let c = chunk.clone();
 
-                                log::trace!("adding chunk");
-                                chunks.push(chunk);
+                            log::trace!("adding chunk");
+                            chunks.push(chunk);
 
-                                if let ImageBuildChunk::PullStatus { status, ..} = c {
-                                    if status.contains("Digest:") {
-                                        let _ = self.tx_results
-                                            .send(Ok(status.trim_start_matches("Digest: ").to_string()))
-                                            .await;
+                            if let ImageBuildChunk::PullStatus { status, ..} = c {
+                                if status.contains("Digest:") {
+                                    let _ = self.tx_results
+                                        .send(Ok(status.trim_start_matches("Digest: ").to_string()))
+                                        .await;
 
-                                        send_chunks!();
-                                        break;
-                                    } else if status.contains("error") {
-                                        let _ = self.tx_results
-                                            .send(Err(Error::msg(status.clone())))
-                                            .await;
+                                    send_chunks!();
+                                    break;
+                                } else if status.contains("error") {
+                                    let _ = self.tx_results
+                                        .send(Err(Error::msg(status.clone())))
+                                        .await;
 
-                                        send_chunks!();
-                                        break;
-                                    }
+                                    send_chunks!();
+                                    break;
                                 }
                             }
-                            Err(e) => {
-                                match e {
-                                    docker_api::Error::Fault {
-                                        code: http::status::StatusCode::NOT_FOUND, message: _
-                                    } => break,
-                                    e => error!("failed to read image pullchunk: {}", e),
-                                }
+                        }
+                        Some(Err(e)) => {
+                            match e {
+                                docker_api::Error::Fault {
+                                    code: http::status::StatusCode::NOT_FOUND, message: _
+                                } => break,
+                                e => error!("failed to read image pullchunk: {}", e),
                             }
-                    }
-                } else {
-                        log::trace!(
-                                "image `{}` pull finished successfuly",
-                                self.image_id
-                        );
-                        let Self { image_id, tx_results, .. }  = self;
-                        let _ = tx_results
-                            .send(Ok(image_id))
-                            .await;
-                        return;
+                        }
+                        None => {
+                            log::trace!(
+                                    "image `{}` pull finished successfuly",
+                                    self.image_id
+                            );
+                            let Self { image_id, tx_results, .. }  = self;
+                            let _ = tx_results
+                                .send(Ok(image_id))
+                                .await;
+                            return;
+                        }
                     }
                 }
                 event = self.rx_events.recv() => {
