@@ -591,7 +591,7 @@ dependencies = [
 [[package]]
 name = "docker-api"
 version = "0.6.0"
-source = "git+https://github.com/vv9k/docker-api-rs#06b367253812dfa719815b1e55e36446a95a2167"
+source = "git+https://github.com/vv9k/docker-api-rs#3992718c0ff671014fed3f04eec85c719263911e"
 dependencies = [
  "base64",
  "byteorder",
@@ -1313,9 +1313,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.6.4"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
+checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
 ]

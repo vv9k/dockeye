@@ -171,6 +171,13 @@ impl App {
                     "Are you sure you want to prune unused images? This will delete all images not in use by a container.",
                 ));
             }
+            if ui.button("clear cache").clicked() {
+                self.popups.push_back(ui::ActionPopup::new(
+                    EventRequest::Image(ImageEvent::ClearCache),
+                    "Clear images cache",
+                    "Are you sure you want to clear image build cache?",
+                ));
+            }
         });
     }
 

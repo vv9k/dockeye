@@ -16,7 +16,10 @@ pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
 
 use anyhow::{Context, Result};
 use docker_api::{
-    api::{ImageListOpts, ImagePruneOpts, ImagesPruneFilter, RmContainerOpts, RmImageOpts},
+    api::{
+        ClearCacheOpts, ImageListOpts, ImagePruneOpts, ImagesPruneFilter, RmContainerOpts,
+        RmImageOpts,
+    },
     Docker,
 };
 use log::{debug, error, trace};
@@ -463,6 +466,21 @@ impl DockerWorker {
                                     }
                                     Err(e) => {
                                         EventResponse::Image(ImageEventResponse::Prune(Err(e)))
+                                    }
+                                }
+                            }
+                            ImageEvent::ClearCache => {
+                                match docker
+                                    .images()
+                                    .clear_cache(&ClearCacheOpts::builder().all(true).build())
+                                    .await
+                                    .context("clearing image cache failed")
+                                {
+                                    Ok(info) => EventResponse::Image(
+                                        ImageEventResponse::ClearCache(Ok(info)),
+                                    ),
+                                    Err(e) => {
+                                        EventResponse::Image(ImageEventResponse::ClearCache(Err(e)))
                                     }
                                 }
                             }

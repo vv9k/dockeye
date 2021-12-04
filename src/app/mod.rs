@@ -625,6 +625,30 @@ impl App {
                 }
                 Err(e) => self.add_error(e),
             },
+            ClearCache(res) => match res {
+                Ok(info) => {
+                    let deleted = info
+                        .caches_deleted
+                        .map(|caches| {
+                            caches
+                                .into_iter()
+                                .fold("Deleted:\n".to_string(), |mut acc, c| {
+                                    acc.push_str(" - ");
+                                    acc.push_str(&c);
+                                    acc.push('\n');
+                                    acc
+                                })
+                        })
+                        .unwrap_or_default();
+                    self.add_notification(format!(
+                        "Space reclaimed: {}\n\n{}",
+                        crate::conv_b(info.space_reclaimed as u64),
+                        deleted
+                    ));
+                    self.send_event_notify(EventRequest::SystemDataUsage);
+                }
+                Err(e) => self.add_error(e),
+            },
         }
     }
 
