@@ -372,6 +372,14 @@ impl App {
                 if self.images.pull_view.in_progress || self.images.search_view.pull_in_progress {
                     self.send_event_notify(EventRequest::Image(ImageEvent::PullChunks));
                 }
+                let id = self
+                    .images
+                    .current_image
+                    .as_ref()
+                    .map(|i| i.details.id.to_string());
+                if let Some(id) = id {
+                    self.send_event_notify(EventRequest::Image(ImageEvent::Inspect { id }));
+                }
                 self.timers.update_time = SystemTime::now();
             }
             _ => {}
