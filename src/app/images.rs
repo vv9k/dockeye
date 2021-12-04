@@ -333,6 +333,7 @@ impl App {
 
     fn image_details(&self, ui: &mut egui::Ui) {
         if let Some(image) = &self.images.current_image {
+            ui.allocate_space((f32::INFINITY, 0.).into());
             let details = &image.details;
 
             ui.horizontal(|ui| {
