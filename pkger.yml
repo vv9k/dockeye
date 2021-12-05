@@ -1,0 +1,33 @@
+---
+metadata:
+  name: dockeye
+  arch: x86_64
+  version: 0.2.0
+  description: GUI app for managing Docker
+  license: GPL-3.0
+  source: https://github.com/vv9k/$RECIPE/archive/refs/tags/$RECIPE_VERSION.tar.gz
+  build_depends:
+    pkger-apk: ['libxcb-dev', 'libxkbcommon-dev']
+    pkger-deb: ['libxcb-render0-dev', 'libxcb-shape0-dev', 'libxcb-xfixes0-dev', 'libxkbcommon-dev']
+    pkger-rpm: ['libxcb-devel', 'libxkbcommon-devel', 'libxcb']
+    pkger-deb+pkger-rpm: [ 'pkg-config' ]
+    all:
+      - curl
+      - gcc
+      - python3
+configure:
+  steps:
+    - cmd: curl -o /tmp/install_rust.sh https://sh.rustup.rs
+    - cmd: sh /tmp/install_rust.sh -y --default-toolchain stable
+build:
+  working_dir: $PKGER_BLD_DIR/${RECIPE}-$RECIPE_VERSION
+  steps:
+    - cmd: $HOME/.cargo/bin/cargo build --release
+install:
+  steps:
+    - cmd: >-
+        mkdir -p \
+          usr/bin \
+          usr/share/doc/$RECIPE \
+    - cmd: install -m755 $PKGER_BLD_DIR/$RECIPE-$RECIPE_VERSION/target/release/$RECIPE usr/bin/
+    - cmd: install -m644 $PKGER_BLD_DIR/$RECIPE-$RECIPE_VERSION/README.md usr/share/doc/$RECIPE/README.md

@@ -60,6 +60,49 @@ jobs:
       - uses: actions/checkout@main
       - uses: ./.github/actions/test
 
+  build_deb_and_rpm:
+    name: Build DEB and RPM packages
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Download pkger
+        run: wget https://github.com/vv9k/pkger/releases/download/0.7.0/pkger-0.7.0.amd64.deb
+      - name: Install pkger
+        run: sudo dpkg -i pkger-0.7.0.amd64.deb
+      - name: Initialize pkger
+        run: pkger init --recipes $PWD/recipes --output $PWD/output
+      - name: Initialize directories
+        run: mkdir ./recipes/dockeye
+      - name: Copy recipe
+        run: cp pkger.yml ./recipes/dockeye/recipe.yml
+      - name: Build packages
+        run: pkger build -s deb rpm -- dockeye
+      - name: Set version
+        id: set_version
+        run: echo "::set-output name=DOCKEYE_VERSION::${GITHUB_REF#refs/tags/}"
+      - name: Upload deb
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_name: vv9k/dockeye
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./output/pkger-deb/dockeye-${{steps.set_version.outputs.DOCKEYE_VERSION}}.amd64.deb
+          asset_name: dockeye-${{steps.set_version.outputs.DOCKEYE_VERSION}}.amd64.deb
+          tag: ${{ steps.set_version.outputs.DOCKEYE_VERSION }}
+          overwrite: true
+      - name: Upload rpm
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_name: vv9k/dockeye
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./output/pkger-rpm/dockeye-${{steps.set_version.outputs.DOCKEYE_VERSION}}-0.x86_64.rpm
+          asset_name: dockeye-${{steps.set_version.outputs.DOCKEYE_VERSION}}-0.x86_64.rpm
+          tag: ${{ steps.set_version.outputs.DOCKEYE_VERSION }}
+          overwrite: true
+
+
+
+
   build_and_upload_artifacts:
     name: Upload Artifacts
     needs: [test]
