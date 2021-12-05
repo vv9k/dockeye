@@ -411,6 +411,9 @@ impl App {
                     }
                     Err(e) => self.add_error(e),
                 },
+                EventResponse::SystemEvents(events) => {
+                    self.system.events.extend(events);
+                }
                 EventResponse::NotifyGui(event) => match event {
                     GuiEventResponse::SetTab(tab) => {
                         self.current_tab = tab;
