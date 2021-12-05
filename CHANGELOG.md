@@ -21,3 +21,4 @@
 - Make container and image ids open their respective page with details
 - Add a button to clear images build cache
 - Add a button to tag an image
+- Add a view with system events
