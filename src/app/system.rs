@@ -428,7 +428,7 @@ impl App {
                         .default_open(false)
                         .show(ui, |ui| {
                             Grid::new("mem_grid").show(ui, |ui| {
-                                key_val!(ui, "Total memory:", system.info.mem_total);
+                                key_val!(ui, "Total memory:", crate::conv_b(system.info.mem_total));
                                 key_val!(ui, "Memory limit:", system.info.memory_limit);
                                 key_val!(ui, "Swap limit:", system.info.swap_limit);
                                 key_val!(ui, "OOM kill disable:", system.info.oom_kill_disable);
