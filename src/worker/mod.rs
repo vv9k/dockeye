@@ -595,6 +595,26 @@ async fn handle_container_event(
                 Ok(None)
             }
         }
+        ContainerEvent::Changes => {
+            if let Some(id) = container_workers.current_id.as_ref() {
+                match docker
+                    .containers()
+                    .get(id)
+                    .changes()
+                    .await
+                    .context("listing container changes failed")
+                {
+                    Ok(changes) => Ok(Some(EventResponse::Container(
+                        ContainerEventResponse::Changes(Ok(changes)),
+                    ))),
+                    Err(e) => Ok(Some(EventResponse::Container(
+                        ContainerEventResponse::Changes(Err(e)),
+                    ))),
+                }
+            } else {
+                Ok(None)
+            }
+        }
     }
 }
 

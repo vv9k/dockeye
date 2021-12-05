@@ -8,12 +8,14 @@ use crate::event::{ContainerEvent, EventRequest, GuiEvent};
 use crate::worker::RunningContainerStats;
 
 use docker_api::api::{
-    ContainerCreateOpts, ContainerDetails, ContainerId, ContainerIdRef, ContainerInfo,
-    ContainerStatus, Top,
+    Change, ChangeKind, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerIdRef,
+    ContainerInfo, ContainerStatus, Top,
 };
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
 use egui::{Grid, Label};
+
+const PAGE_SIZE: usize = 1024;
 
 pub fn color_for_state(state: &str) -> egui::Color32 {
     if state == "running" {
@@ -141,6 +143,7 @@ pub enum ContainerView {
     Details,
     Logs,
     Processes,
+    Changes,
     Attach,
 }
 
@@ -218,10 +221,12 @@ pub struct ContainersTab {
     pub container_view: ContainerView,
     pub central_view: CentralView,
     pub current_logs: Option<String>,
+    pub current_changes: Option<Vec<Change>>,
     pub logs_page: usize,
     pub follow_logs: bool,
     pub create_data: ContainerCreateData,
     pub rename_window: RenameWindow,
+    pub changes_page: usize,
 }
 
 impl Default for ContainersTab {
@@ -234,10 +239,12 @@ impl Default for ContainersTab {
             central_view: CentralView::default(),
             current_logs: None,
             current_top: None,
+            current_changes: None,
             logs_page: 0,
             follow_logs: false,
             create_data: ContainerCreateData::default(),
             rename_window: RenameWindow::default(),
+            changes_page: 0,
         }
     }
 }
@@ -565,6 +572,11 @@ impl App {
                 );
                 ui.selectable_value(
                     &mut self.containers.container_view,
+                    ContainerView::Changes,
+                    "changes",
+                );
+                ui.selectable_value(
+                    &mut self.containers.container_view,
                     ContainerView::Attach,
                     "attach",
                 );
@@ -579,6 +591,7 @@ impl App {
                     self.container_logs(ui);
                 }
                 ContainerView::Processes => self.container_processes(ui),
+                ContainerView::Changes => self.container_changes(ui),
                 ContainerView::Attach => {}
             }
         }
@@ -984,7 +997,6 @@ impl App {
     }
 
     fn container_logs(&mut self, ui: &mut egui::Ui) {
-        const PAGE_SIZE: usize = 1024;
         if let Some(logs) = &self.containers.current_logs {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
@@ -1075,6 +1087,52 @@ impl App {
                     for field in process {
                         val!(ui, field);
                     }
+                    ui.end_row();
+                }
+            });
+        }
+    }
+
+    fn container_changes(&mut self, ui: &mut egui::Ui) {
+        if let Some(changes) = &self.containers.current_changes {
+            ui.allocate_space((f32::INFINITY, 0.).into());
+            let max_page = changes.len() / PAGE_SIZE;
+            ui.horizontal(|ui| {
+                if ui.button("<").clicked() && self.containers.changes_page > 0 {
+                    self.containers.changes_page -= 1;
+                }
+                ui.add(
+                    egui::DragValue::new(&mut self.containers.changes_page)
+                        .clamp_range(0..=max_page)
+                        .fixed_decimals(0)
+                        .speed(1.),
+                );
+                if ui.button(">").clicked() && self.containers.changes_page < max_page {
+                    self.containers.changes_page += 1;
+                }
+            });
+            Grid::new("container_changes").show(ui, |ui| {
+                for change in changes
+                    .iter()
+                    .skip(self.containers.changes_page * PAGE_SIZE)
+                    .take(PAGE_SIZE)
+                {
+                    let label = match change.kind {
+                        ChangeKind::Modified => {
+                            Label::new("M").text_color(egui::Color32::YELLOW).strong()
+                        }
+                        ChangeKind::Added => {
+                            Label::new("A").text_color(egui::Color32::GREEN).strong()
+                        }
+                        ChangeKind::Deleted => {
+                            Label::new("D").text_color(egui::Color32::RED).strong()
+                        }
+                    };
+                    ui.scope(|ui| {
+                        ui.add(label);
+                        ui.add_space(5.);
+                        ui.label(&change.path);
+                    });
                     ui.end_row();
                 }
             });

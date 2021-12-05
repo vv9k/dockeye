@@ -446,7 +446,10 @@ impl App {
                 });
                 self.containers.containers = containers
             }
-            Details(container) => self.set_container(container),
+            Details(container) => {
+                self.send_event_notify(EventRequest::Container(ContainerEvent::Changes));
+                self.set_container(container)
+            }
             InspectNotFound => {
                 self.add_error("container not found");
                 self.containers.clear_container()
@@ -536,6 +539,16 @@ impl App {
             }
             ProcessList(res) => match res {
                 Ok(top) => self.containers.current_top = Some(top),
+                Err(e) => self.add_error(e),
+            },
+            Changes(res) => match res {
+                Ok(mut changes) => {
+                    changes.sort_by(|a, b| match a.kind.partial_cmp(&b.kind) {
+                        Some(std::cmp::Ordering::Equal) | None => a.path.cmp(&b.path),
+                        Some(cmp) => cmp,
+                    });
+                    self.containers.current_changes = Some(changes)
+                }
                 Err(e) => self.add_error(e),
             },
         }

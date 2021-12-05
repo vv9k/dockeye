@@ -1,7 +1,7 @@
 use crate::worker::{Logs, RunningContainerStats};
 
 use docker_api::api::{
-    ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
+    Change, ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
     ImagesPruneInfo, Info, RegistryAuth, SearchResult, TagOpts, Top, Version,
@@ -40,6 +40,7 @@ pub enum ContainerEvent {
     Prune,
     Restart { id: String },
     ProcessList,
+    Changes,
 }
 
 #[derive(Debug)]
@@ -107,6 +108,7 @@ pub enum ContainerEventResponse {
     Restart(anyhow::Result<ContainerId>),
     RestartInProgress { id: String },
     ProcessList(anyhow::Result<Top>),
+    Changes(anyhow::Result<Vec<Change>>),
 }
 
 #[derive(Debug)]
