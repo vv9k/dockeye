@@ -545,11 +545,14 @@ impl App {
             },
             Changes(res) => match res {
                 Ok(mut changes) => {
-                    changes.sort_by(|a, b| match a.kind.partial_cmp(&b.kind) {
-                        Some(std::cmp::Ordering::Equal) | None => a.path.cmp(&b.path),
-                        Some(cmp) => cmp,
+                    changes.as_deref_mut().map(|c| {
+                        c.sort_by(|a, b| match a.kind.partial_cmp(&b.kind) {
+                            Some(std::cmp::Ordering::Equal) | None => a.path.cmp(&b.path),
+                            Some(cmp) => cmp,
+                        });
+                        c
                     });
-                    self.containers.changes_view_data.current_changes = Some(changes)
+                    self.containers.changes_view_data.current_changes = changes
                 }
                 Err(e) => self.add_error(e),
             },

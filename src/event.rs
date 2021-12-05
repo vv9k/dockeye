@@ -108,7 +108,7 @@ pub enum ContainerEventResponse {
     Restart(anyhow::Result<ContainerId>),
     RestartInProgress { id: String },
     ProcessList(anyhow::Result<Top>),
-    Changes(anyhow::Result<Vec<Change>>),
+    Changes(anyhow::Result<Option<Vec<Change>>>),
 }
 
 #[derive(Debug)]
