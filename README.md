@@ -16,8 +16,6 @@ To install from AUR, use your favorite AUR helper like `paru`:
 $ paru -S dockeye
 ```
 
-Or more recent release: `dockeye-git`
-
 ## Building from source
 
 Install required libraries (only required on Linux):
