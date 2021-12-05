@@ -56,6 +56,8 @@ pub mod icon {
     pub const SUB: &str = "\u{2796}";
     pub const DISK: &str = "\u{1F5B4}";
     pub const ARROW_DOWN: &str = "\u{2B8B}";
+    pub const ARROW_LEFT: &str = "\u{2B05}";
+    pub const ARROW_RIGHT: &str = "\u{27A1}";
     pub const RESTART: &str = "\u{1F504}";
 }
 

@@ -1025,12 +1025,28 @@ impl App {
 
                     let mut page = self.containers.logs_view_data.page as f32;
                     ui.horizontal(|ui| {
+                        if ui
+                            .button(icon::ARROW_LEFT)
+                            .on_hover_text("Decrease the page")
+                            .clicked()
+                            && self.containers.logs_view_data.page > 0
+                        {
+                            self.containers.logs_view_data.page -= 1;
+                        }
                         ui.add(
                             egui::DragValue::new(&mut page)
                                 .clamp_range(0..=max_page)
                                 .fixed_decimals(0)
                                 .speed(1.),
                         );
+                        if ui
+                            .button(icon::ARROW_RIGHT)
+                            .on_hover_text("Increase the page")
+                            .clicked()
+                            && self.containers.logs_view_data.page < max_page
+                        {
+                            self.containers.logs_view_data.page += 1;
+                        }
                         ui.checkbox(&mut self.containers.logs_view_data.follow, "Follow logs");
                     });
                     self.containers.logs_view_data.page = page as usize;
@@ -1096,7 +1112,12 @@ impl App {
             ui.allocate_space((f32::INFINITY, 0.).into());
             let max_page = changes.len() / PAGE_SIZE;
             ui.horizontal(|ui| {
-                if ui.button("<").clicked() && self.containers.changes_view_data.page > 0 {
+                if ui
+                    .button(icon::ARROW_LEFT)
+                    .on_hover_text("Decrease the page")
+                    .clicked()
+                    && self.containers.changes_view_data.page > 0
+                {
                     self.containers.changes_view_data.page -= 1;
                 }
                 ui.add(
@@ -1105,7 +1126,12 @@ impl App {
                         .fixed_decimals(0)
                         .speed(1.),
                 );
-                if ui.button(">").clicked() && self.containers.changes_view_data.page < max_page {
+                if ui
+                    .button(icon::ARROW_RIGHT)
+                    .on_hover_text("Increase the page")
+                    .clicked()
+                    && self.containers.changes_view_data.page < max_page
+                {
                     self.containers.changes_view_data.page += 1;
                 }
             });
