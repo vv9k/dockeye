@@ -362,6 +362,9 @@ impl App {
                         .map(|c| containers::is_running(c))
                         .unwrap_or_default()
                     {
+                        self.send_event_notify(EventRequest::Container(
+                            ContainerEvent::ProcessList,
+                        ));
                         self.send_event_notify(EventRequest::Container(ContainerEvent::Stats));
                     }
                 }
@@ -531,6 +534,10 @@ impl App {
             RestartInProgress { id } => {
                 self.add_notification(format!("container `{}` restart in progress", id))
             }
+            ProcessList(res) => match res {
+                Ok(top) => self.containers.current_top = Some(top),
+                Err(e) => self.add_error(e),
+            },
         }
     }
 

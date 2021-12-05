@@ -575,6 +575,26 @@ async fn handle_container_event(
                 ))),
             }
         }
+        ContainerEvent::ProcessList => {
+            if let Some(id) = container_workers.current_id.as_ref() {
+                match docker
+                    .containers()
+                    .get(id)
+                    .top(Some("-aux"))
+                    .await
+                    .context("listing container processes failed")
+                {
+                    Ok(top) => Ok(Some(EventResponse::Container(
+                        ContainerEventResponse::ProcessList(Ok(top)),
+                    ))),
+                    Err(e) => Ok(Some(EventResponse::Container(
+                        ContainerEventResponse::ProcessList(Err(e)),
+                    ))),
+                }
+            } else {
+                Ok(None)
+            }
+        }
     }
 }
 

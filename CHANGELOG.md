@@ -23,3 +23,4 @@
 - Add a button to tag an image
 - Add a view with system events
 - Add a button to restart a container
+- Add a view of processes on a running container

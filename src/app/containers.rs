@@ -9,7 +9,7 @@ use crate::worker::RunningContainerStats;
 
 use docker_api::api::{
     ContainerCreateOpts, ContainerDetails, ContainerId, ContainerIdRef, ContainerInfo,
-    ContainerStatus,
+    ContainerStatus, Top,
 };
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
@@ -140,6 +140,7 @@ impl Default for CentralView {
 pub enum ContainerView {
     Details,
     Logs,
+    Processes,
     Attach,
 }
 
@@ -213,6 +214,7 @@ pub struct ContainersTab {
     pub containers: Vec<ContainerInfo>,
     pub current_container: Option<Box<ContainerDetails>>,
     pub current_stats: Option<Box<RunningContainerStats>>,
+    pub current_top: Option<Top>,
     pub container_view: ContainerView,
     pub central_view: CentralView,
     pub current_logs: Option<String>,
@@ -231,6 +233,7 @@ impl Default for ContainersTab {
             container_view: ContainerView::Details,
             central_view: CentralView::default(),
             current_logs: None,
+            current_top: None,
             logs_page: 0,
             follow_logs: false,
             create_data: ContainerCreateData::default(),
@@ -557,6 +560,11 @@ impl App {
                 );
                 ui.selectable_value(
                     &mut self.containers.container_view,
+                    ContainerView::Processes,
+                    "processes",
+                );
+                ui.selectable_value(
+                    &mut self.containers.container_view,
                     ContainerView::Attach,
                     "attach",
                 );
@@ -570,6 +578,7 @@ impl App {
                 ContainerView::Logs => {
                     self.container_logs(ui);
                 }
+                ContainerView::Processes => self.container_processes(ui),
                 ContainerView::Attach => {}
             }
         }
@@ -1050,6 +1059,24 @@ impl App {
                     }
                     ui.end_row();
                 });
+            });
+        }
+    }
+
+    fn container_processes(&mut self, ui: &mut egui::Ui) {
+        if let Some(top) = &self.containers.current_top {
+            Grid::new("container_processes").show(ui, |ui| {
+                for title in &top.titles {
+                    key!(ui, title);
+                }
+                ui.end_row();
+
+                for process in &top.processes {
+                    for field in process {
+                        val!(ui, field);
+                    }
+                    ui.end_row();
+                }
             });
         }
     }

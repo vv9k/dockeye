@@ -4,7 +4,7 @@ use docker_api::api::{
     ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
-    ImagesPruneInfo, Info, RegistryAuth, SearchResult, TagOpts, Version,
+    ImagesPruneInfo, Info, RegistryAuth, SearchResult, TagOpts, Top, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -39,6 +39,7 @@ pub enum ContainerEvent {
     ForceDelete { id: String },
     Prune,
     Restart { id: String },
+    ProcessList,
 }
 
 #[derive(Debug)]
@@ -105,6 +106,7 @@ pub enum ContainerEventResponse {
     Prune(anyhow::Result<ContainersPruneInfo>),
     Restart(anyhow::Result<ContainerId>),
     RestartInProgress { id: String },
+    ProcessList(anyhow::Result<Top>),
 }
 
 #[derive(Debug)]
