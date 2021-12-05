@@ -577,19 +577,19 @@ async fn handle_container_event(
         }
         ContainerEvent::ProcessList => {
             if let Some(id) = container_workers.current_id.as_ref() {
-                match docker
-                    .containers()
-                    .get(id)
-                    .top(Some("-aux"))
-                    .await
-                    .context("listing container processes failed")
-                {
+                match docker.containers().get(id).top(Some("-aux")).await {
                     Ok(top) => Ok(Some(EventResponse::Container(
                         ContainerEventResponse::ProcessList(Ok(top)),
                     ))),
-                    Err(e) => Ok(Some(EventResponse::Container(
-                        ContainerEventResponse::ProcessList(Err(e)),
-                    ))),
+                    Err(e) => match e {
+                        docker_api::Error::Fault { code, message: _ } if code == 409 => Ok(None),
+                        _ => Ok(Some(EventResponse::Container(
+                            ContainerEventResponse::ProcessList(Err(anyhow!(
+                                "listing container processes failed: {}",
+                                e
+                            ))),
+                        ))),
+                    },
                 }
             } else {
                 Ok(None)
@@ -597,19 +597,19 @@ async fn handle_container_event(
         }
         ContainerEvent::Changes => {
             if let Some(id) = container_workers.current_id.as_ref() {
-                match docker
-                    .containers()
-                    .get(id)
-                    .changes()
-                    .await
-                    .context("listing container changes failed")
-                {
+                match docker.containers().get(id).changes().await {
                     Ok(changes) => Ok(Some(EventResponse::Container(
                         ContainerEventResponse::Changes(Ok(changes)),
                     ))),
-                    Err(e) => Ok(Some(EventResponse::Container(
-                        ContainerEventResponse::Changes(Err(e)),
-                    ))),
+                    Err(e) => match e {
+                        docker_api::Error::Fault { code, message: _ } if code == 404 => Ok(None),
+                        _ => Ok(Some(EventResponse::Container(
+                            ContainerEventResponse::Changes(Err(anyhow!(
+                                "listing container changes failed: {}",
+                                e
+                            ))),
+                        ))),
+                    },
                 }
             } else {
                 Ok(None)
