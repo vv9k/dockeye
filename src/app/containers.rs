@@ -563,21 +563,25 @@ impl App {
                     ContainerView::Logs,
                     "logs",
                 );
-                ui.selectable_value(
-                    &mut self.containers.container_view,
-                    ContainerView::Processes,
-                    "processes",
-                );
-                ui.selectable_value(
-                    &mut self.containers.container_view,
-                    ContainerView::Changes,
-                    "changes",
-                );
-                ui.selectable_value(
-                    &mut self.containers.container_view,
-                    ContainerView::Attach,
-                    "attach",
-                );
+                if self.containers.changes_view_data.current_changes.is_some() {
+                    ui.selectable_value(
+                        &mut self.containers.container_view,
+                        ContainerView::Changes,
+                        "changes",
+                    );
+                }
+                if is_running(container) {
+                    ui.selectable_value(
+                        &mut self.containers.container_view,
+                        ContainerView::Processes,
+                        "processes",
+                    );
+                    ui.selectable_value(
+                        &mut self.containers.container_view,
+                        ContainerView::Attach,
+                        "attach",
+                    );
+                }
             });
             ui.add_space(15.);
             match self.containers.container_view {
