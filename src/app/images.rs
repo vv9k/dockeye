@@ -52,14 +52,14 @@ impl TagWindow {
 }
 
 #[derive(Debug, Default)]
-pub struct SearchView {
+pub struct SearchViewData {
     pub image: String,
     pub images: Option<Vec<SearchResult>>,
     pub pull_in_progress: bool,
 }
 
 #[derive(Debug, Default)]
-pub struct PullView {
+pub struct PullViewData {
     pub image: String,
     pub user: String,
     pub password: String,
@@ -85,10 +85,11 @@ pub struct ImagesTab {
     pub images: Vec<ImageInfo>,
     pub current_image: Option<Box<ImageInspectInfo>>,
     pub current_pull_chunks: Option<Vec<ImageBuildChunk>>,
-    pub central_view: CentralView,
-    pub pull_view: PullView,
-    pub search_view: SearchView,
+
     pub tag_window: TagWindow,
+    pub central_view: CentralView,
+    pub pull_view_data: PullViewData,
+    pub search_view_data: SearchViewData,
 }
 
 impl ImagesTab {
@@ -494,43 +495,43 @@ impl App {
             ui.allocate_space((200., 0.).into());
             ui.end_row();
             ui.add(Label::new("Image to pull:").strong());
-            ui.add(TextEdit::singleline(&mut self.images.pull_view.image).desired_width(150.));
+            ui.add(TextEdit::singleline(&mut self.images.pull_view_data.image).desired_width(150.));
             ui.end_row();
             ui.add(Label::new("User:").strong());
-            ui.add(TextEdit::singleline(&mut self.images.pull_view.user).desired_width(150.));
+            ui.add(TextEdit::singleline(&mut self.images.pull_view_data.user).desired_width(150.));
             ui.end_row();
             ui.add(Label::new("Password:").strong());
             ui.add(
-                TextEdit::singleline(&mut self.images.pull_view.password)
+                TextEdit::singleline(&mut self.images.pull_view_data.password)
                     .password(true)
                     .desired_width(150.),
             );
             ui.end_row();
             if ui.button("pull").clicked() {
-                if self.images.pull_view.in_progress {
+                if self.images.pull_view_data.in_progress {
                     self.add_notification("Image pull already in progress");
-                } else if self.images.pull_view.image.is_empty() {
+                } else if self.images.pull_view_data.image.is_empty() {
                     self.add_notification("Image name can't be empty");
                 } else {
-                    let auth = if !self.images.pull_view.user.is_empty() {
+                    let auth = if !self.images.pull_view_data.user.is_empty() {
                         let auth = RegistryAuth::builder();
-                        if !self.images.pull_view.password.is_empty() {
+                        if !self.images.pull_view_data.password.is_empty() {
                             Some(
-                                auth.username(&self.images.pull_view.user)
-                                    .password(&self.images.pull_view.password)
+                                auth.username(&self.images.pull_view_data.user)
+                                    .password(&self.images.pull_view_data.password)
                                     .build(),
                             )
                         } else {
-                            Some(auth.username(&self.images.pull_view.user).build())
+                            Some(auth.username(&self.images.pull_view_data.user).build())
                         }
                     } else {
                         None
                     };
                     self.send_event_notify(EventRequest::Image(ImageEvent::Pull {
-                        image: self.images.pull_view.image.clone(),
+                        image: self.images.pull_view_data.image.clone(),
                         auth,
                     }));
-                    self.images.pull_view.in_progress = true;
+                    self.images.pull_view_data.in_progress = true;
                     self.images.current_pull_chunks = None;
                 }
             }
@@ -581,7 +582,7 @@ impl App {
                 text.push('\n');
             }
         }
-        if self.images.pull_view.in_progress || (progress_percent - 1.).abs() < f32::EPSILON {
+        if self.images.pull_view_data.in_progress || (progress_percent - 1.).abs() < f32::EPSILON {
             ui.add(
                 egui::ProgressBar::new(progress_percent)
                     .desired_width(200.)
@@ -605,15 +606,17 @@ impl App {
 
         key!(ui, "Term:");
         ui.horizontal(|ui| {
-            ui.add(TextEdit::singleline(&mut self.images.search_view.image).desired_width(150.));
+            ui.add(
+                TextEdit::singleline(&mut self.images.search_view_data.image).desired_width(150.),
+            );
             if ui.button("search").clicked() {
-                if self.images.search_view.image.is_empty() {
+                if self.images.search_view_data.image.is_empty() {
                     self.add_error(
                         "Can't search for an empty term. Enter a name of the image to search for",
                     );
                 } else {
                     self.send_event_notify(EventRequest::Image(ImageEvent::Search {
-                        image: self.images.search_view.image.clone(),
+                        image: self.images.search_view_data.image.clone(),
                     }))
                 }
             }
@@ -649,7 +652,8 @@ impl App {
                 }
             }
         }
-        if self.images.search_view.pull_in_progress || (progress_percent - 1.).abs() < f32::EPSILON
+        if self.images.search_view_data.pull_in_progress
+            || (progress_percent - 1.).abs() < f32::EPSILON
         {
             ui.add(
                 egui::ProgressBar::new(progress_percent)
@@ -660,7 +664,7 @@ impl App {
 
         let mut pull_events = vec![];
 
-        if let Some(images) = self.images.search_view.images.as_ref() {
+        if let Some(images) = self.images.search_view_data.images.as_ref() {
             Grid::new("images_search_grid")
                 .striped(true)
                 .spacing((10., 10.))
@@ -684,7 +688,7 @@ impl App {
                                 auth: None,
                             }));
                             self.images.current_pull_chunks = None;
-                            self.images.search_view.pull_in_progress = true;
+                            self.images.search_view_data.pull_in_progress = true;
                         }
                         ui.scope(|ui| {
                             ui.add(icon());

@@ -147,6 +147,12 @@ pub enum ContainerView {
     Attach,
 }
 
+impl Default for ContainerView {
+    fn default() -> Self {
+        ContainerView::Details
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct ContainerCreateData {
     pub image: String,
@@ -212,41 +218,33 @@ impl RenameWindow {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+pub struct LogsViewData {
+    pub current_logs: Option<String>,
+    pub page: usize,
+    pub follow: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct ChangesViewData {
+    pub current_changes: Option<Vec<Change>>,
+    pub page: usize,
+}
+
+#[derive(Debug, Default)]
 pub struct ContainersTab {
     pub containers: Vec<ContainerInfo>,
     pub current_container: Option<Box<ContainerDetails>>,
     pub current_stats: Option<Box<RunningContainerStats>>,
     pub current_top: Option<Top>,
-    pub container_view: ContainerView,
-    pub central_view: CentralView,
-    pub current_logs: Option<String>,
-    pub current_changes: Option<Vec<Change>>,
-    pub logs_page: usize,
-    pub follow_logs: bool,
+
+    pub logs_view_data: LogsViewData,
+    pub changes_view_data: ChangesViewData,
+
     pub create_data: ContainerCreateData,
     pub rename_window: RenameWindow,
-    pub changes_page: usize,
-}
-
-impl Default for ContainersTab {
-    fn default() -> Self {
-        Self {
-            containers: vec![],
-            current_container: None,
-            current_stats: None,
-            container_view: ContainerView::Details,
-            central_view: CentralView::default(),
-            current_logs: None,
-            current_top: None,
-            current_changes: None,
-            logs_page: 0,
-            follow_logs: false,
-            create_data: ContainerCreateData::default(),
-            rename_window: RenameWindow::default(),
-            changes_page: 0,
-        }
-    }
+    pub container_view: ContainerView,
+    pub central_view: CentralView,
 }
 
 impl ContainersTab {
@@ -258,8 +256,8 @@ impl ContainersTab {
     pub fn clear_container(&mut self) {
         self.current_container = None;
         self.current_stats = None;
-        self.current_logs = None;
-        self.logs_page = 0;
+        self.logs_view_data.current_logs = None;
+        self.logs_view_data.page = 0;
     }
 }
 
@@ -997,7 +995,7 @@ impl App {
     }
 
     fn container_logs(&mut self, ui: &mut egui::Ui) {
-        if let Some(logs) = &self.containers.current_logs {
+        if let Some(logs) = &self.containers.logs_view_data.current_logs {
             egui::CollapsingHeader::new("Logs")
                 .default_open(false)
                 .show(ui, |ui| {
@@ -1011,10 +1009,10 @@ impl App {
 
                     let len_lines = rope.len_lines();
                     let max_page = len_lines / PAGE_SIZE;
-                    let cur_line = self.containers.logs_page * PAGE_SIZE;
+                    let cur_line = self.containers.logs_view_data.page * PAGE_SIZE;
 
-                    let mut slice = if self.containers.follow_logs {
-                        self.containers.logs_page = max_page;
+                    let mut slice = if self.containers.logs_view_data.follow {
+                        self.containers.logs_view_data.page = max_page;
                         &logs[rope.line_to_byte(len_lines.saturating_sub(PAGE_SIZE))..]
                     } else if cur_line + PAGE_SIZE > len_lines {
                         let start_idx = rope.line_to_byte(
@@ -1025,7 +1023,7 @@ impl App {
                         &logs[rope.line_to_byte(cur_line)..rope.line_to_byte(cur_line + PAGE_SIZE)]
                     };
 
-                    let mut page = self.containers.logs_page as f32;
+                    let mut page = self.containers.logs_view_data.page as f32;
                     ui.horizontal(|ui| {
                         ui.add(
                             egui::DragValue::new(&mut page)
@@ -1033,9 +1031,9 @@ impl App {
                                 .fixed_decimals(0)
                                 .speed(1.),
                         );
-                        ui.checkbox(&mut self.containers.follow_logs, "Follow logs");
+                        ui.checkbox(&mut self.containers.logs_view_data.follow, "Follow logs");
                     });
-                    self.containers.logs_page = page as usize;
+                    self.containers.logs_view_data.page = page as usize;
 
                     Frame::none().fill(color).show(ui, |ui| {
                         ui.allocate_space((ui.available_rect_before_wrap().width(), 0.).into());
@@ -1094,27 +1092,27 @@ impl App {
     }
 
     fn container_changes(&mut self, ui: &mut egui::Ui) {
-        if let Some(changes) = &self.containers.current_changes {
+        if let Some(changes) = &self.containers.changes_view_data.current_changes {
             ui.allocate_space((f32::INFINITY, 0.).into());
             let max_page = changes.len() / PAGE_SIZE;
             ui.horizontal(|ui| {
-                if ui.button("<").clicked() && self.containers.changes_page > 0 {
-                    self.containers.changes_page -= 1;
+                if ui.button("<").clicked() && self.containers.changes_view_data.page > 0 {
+                    self.containers.changes_view_data.page -= 1;
                 }
                 ui.add(
-                    egui::DragValue::new(&mut self.containers.changes_page)
+                    egui::DragValue::new(&mut self.containers.changes_view_data.page)
                         .clamp_range(0..=max_page)
                         .fixed_decimals(0)
                         .speed(1.),
                 );
-                if ui.button(">").clicked() && self.containers.changes_page < max_page {
-                    self.containers.changes_page += 1;
+                if ui.button(">").clicked() && self.containers.changes_view_data.page < max_page {
+                    self.containers.changes_view_data.page += 1;
                 }
             });
             Grid::new("container_changes").show(ui, |ui| {
                 for change in changes
                     .iter()
-                    .skip(self.containers.changes_page * PAGE_SIZE)
+                    .skip(self.containers.changes_view_data.page * PAGE_SIZE)
                     .take(PAGE_SIZE)
                 {
                     let label = match change.kind {

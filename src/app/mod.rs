@@ -372,7 +372,9 @@ impl App {
             }
             Tab::Images if elapsed > 1000 => {
                 self.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
-                if self.images.pull_view.in_progress || self.images.search_view.pull_in_progress {
+                if self.images.pull_view_data.in_progress
+                    || self.images.search_view_data.pull_in_progress
+                {
                     self.send_event_notify(EventRequest::Image(ImageEvent::PullChunks));
                 }
                 let id = self
@@ -489,10 +491,10 @@ impl App {
                 let raw_bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
                 let escaped_bytes = strip_ansi_escapes::strip(&raw_bytes).unwrap_or(raw_bytes);
                 let logs = String::from_utf8_lossy(&escaped_bytes);
-                if let Some(current_logs) = &mut self.containers.current_logs {
+                if let Some(current_logs) = &mut self.containers.logs_view_data.current_logs {
                     current_logs.push_str(&logs);
                 } else {
-                    self.containers.current_logs = Some(logs.to_string());
+                    self.containers.logs_view_data.current_logs = Some(logs.to_string());
                 }
             }
             Start(res) | Stop(res) | Pause(res) | Unpause(res) => {
@@ -547,7 +549,7 @@ impl App {
                         Some(std::cmp::Ordering::Equal) | None => a.path.cmp(&b.path),
                         Some(cmp) => cmp,
                     });
-                    self.containers.current_changes = Some(changes)
+                    self.containers.changes_view_data.current_changes = Some(changes)
                 }
                 Err(e) => self.add_error(e),
             },
@@ -607,7 +609,7 @@ impl App {
             },
             Pull(res) => match res {
                 Ok(id) => {
-                    self.images.pull_view.in_progress = false;
+                    self.images.pull_view_data.in_progress = false;
                     self.add_notification(format!("successfully pulled image {}", id,))
                 }
                 Err(e) => self.add_error(e),
@@ -622,7 +624,7 @@ impl App {
             Search(res) => match res {
                 Ok(mut results) => {
                     results.sort_by(|a, b| b.star_count.cmp(&a.star_count));
-                    self.images.search_view.images = Some(results)
+                    self.images.search_view_data.images = Some(results)
                 }
                 Err(e) => self.add_error(e),
             },
