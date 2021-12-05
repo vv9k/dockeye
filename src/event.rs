@@ -38,6 +38,7 @@ pub enum ContainerEvent {
     Rename { id: String, name: String },
     ForceDelete { id: String },
     Prune,
+    Restart { id: String },
 }
 
 #[derive(Debug)]
@@ -102,6 +103,8 @@ pub enum ContainerEventResponse {
     Rename(anyhow::Result<()>),
     ForceDelete(anyhow::Result<ContainerId>),
     Prune(anyhow::Result<ContainersPruneInfo>),
+    Restart(anyhow::Result<ContainerId>),
+    RestartInProgress { id: String },
 }
 
 #[derive(Debug)]

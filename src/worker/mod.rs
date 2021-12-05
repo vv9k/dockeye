@@ -328,6 +328,30 @@ impl DockerWorker {
                                     ),
                                 }
                             }
+                            ContainerEvent::Restart { id } => {
+                                let _ = tx_rsp
+                                    .send(EventResponse::Container(
+                                        ContainerEventResponse::RestartInProgress {
+                                            id: id.clone(),
+                                        },
+                                    ))
+                                    .await;
+                                match docker
+                                    .containers()
+                                    .get(&id)
+                                    .restart(None)
+                                    .await
+                                    .map(|_| id)
+                                    .context("restarting container failed")
+                                {
+                                    Ok(id) => EventResponse::Container(
+                                        ContainerEventResponse::Restart(Ok(id)),
+                                    ),
+                                    Err(e) => EventResponse::Container(
+                                        ContainerEventResponse::Restart(Err(e)),
+                                    ),
+                                }
+                            }
                         },
                         EventRequest::Image(event) => match event {
                             ImageEvent::List(opts) => {

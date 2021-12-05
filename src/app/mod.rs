@@ -499,7 +499,7 @@ impl App {
                 Err(e) => self.add_error(e),
             },
             Rename(res) => match res {
-                Ok(_) => self.add_notification("successfully renamed a container"),
+                Ok(_) => self.add_notification("successfully renamed the container"),
                 Err(e) => self.add_error(e),
             },
             Prune(res) => match res {
@@ -522,6 +522,15 @@ impl App {
                 }
                 Err(e) => self.add_error(e),
             },
+            Restart(res) => match res {
+                Ok(id) => {
+                    self.add_notification(format!("successfully restarted the container `{}`", id))
+                }
+                Err(e) => self.add_error(e),
+            },
+            RestartInProgress { id } => {
+                self.add_notification(format!("container `{}` restart in progress", id))
+            }
         }
     }
 

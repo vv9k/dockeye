@@ -22,3 +22,4 @@
 - Add a button to clear images build cache
 - Add a button to tag an image
 - Add a view with system events
+- Add a button to restart a container

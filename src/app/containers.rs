@@ -52,7 +52,7 @@ macro_rules! btn {
             $self,
             $ui,
             icon::STOP,
-            "stop the container",
+            "stop this container",
             EventRequest::Container(ContainerEvent::Stop {
                 id: $container.id.clone()
             }),
@@ -64,7 +64,7 @@ macro_rules! btn {
             $self,
             $ui,
             icon::PLAY,
-            "start the container",
+            "start this container",
             EventRequest::Container(ContainerEvent::Start {
                 id: $container.id.clone()
             }),
@@ -76,7 +76,7 @@ macro_rules! btn {
             $self,
             $ui,
             icon::PAUSE,
-            "pause the container",
+            "pause this container",
             EventRequest::Container(ContainerEvent::Pause {
                 id: $container.id.clone()
             }),
@@ -88,7 +88,7 @@ macro_rules! btn {
             $self,
             $ui,
             icon::PLAY,
-            "unpause the container",
+            "unpause this container",
             EventRequest::Container(ContainerEvent::Unpause {
                 id: $container.id.clone()
             }),
@@ -100,8 +100,20 @@ macro_rules! btn {
             $self,
             $ui,
             icon::INFO,
-            "inpect the container",
+            "inpect this container",
             EventRequest::Container(ContainerEvent::TraceStart {
+                id: $container.id.clone()
+            }),
+            $errors
+        );
+    };
+    (restart => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+        btn!(
+            $self,
+            $ui,
+            icon::RESTART,
+            "restart this container",
+            EventRequest::Container(ContainerEvent::Restart {
                 id: $container.id.clone()
             }),
             $errors
@@ -413,9 +425,11 @@ impl App {
                                                 if &container.state == "running" {
                                                     btn!(stop => self, ui, container, errors);
                                                     btn!(pause => self, ui, container, errors);
+                                                    btn!(restart => self, ui, container, errors);
                                                 } else if &container.state == "paused" {
                                                     btn!(stop => self, ui, container, errors);
                                                     btn!(unpause => self, ui, container, errors);
+                                                    btn!(restart => self, ui, container, errors);
                                                 } else {
                                                     btn!(start => self, ui, container, errors);
                                                 }
@@ -576,11 +590,13 @@ impl App {
             ui.horizontal(|ui| {
                 btn!(stop => self, ui, container, errors);
                 btn!(pause => self, ui, container, errors);
+                btn!(restart => self, ui, container, errors);
             });
         } else if is_paused(container) {
             ui.horizontal(|ui| {
                 btn!(stop => self, ui, container, errors);
                 btn!(unpause => self, ui, container, errors);
+                btn!(restart => self, ui, container, errors);
             });
         } else {
             ui.horizontal(|ui| {
