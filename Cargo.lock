@@ -590,8 +590,9 @@ dependencies = [
 
 [[package]]
 name = "docker-api"
-version = "0.6.0"
-source = "git+https://github.com/vv9k/docker-api-rs#ce81f85adb69e726e1542fcf36b282307377cb76"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "891e22254feaa3258679a1267a5624ad00669c1d03d85123d897d347f57b62a7"
 dependencies = [
  "base64",
  "byteorder",
@@ -617,7 +618,7 @@ dependencies = [
 
 [[package]]
 name = "dockeye"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bytes 1.1.0",

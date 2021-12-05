@@ -1,6 +1,6 @@
 [package]
 name = "dockeye"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Wojciech Kępka <wojciech@wkepka.dev>"]
 license = "GPLv3"
@@ -10,7 +10,7 @@ eframe = { version = "0.15", features = ["persistence"] }
 egui = "0.15"
 epi = "0.15"
 epaint = "0.15"
-docker-api = { git = "https://github.com/vv9k/docker-api-rs" }
+docker-api = "0.7"
 anyhow = "1"
 tokio = { version = "1", features = ["rt", "macros", "time", "fs", "io-util"] }
 log = "0.4"
