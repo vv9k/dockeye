@@ -3,8 +3,8 @@ use crate::worker::{Logs, RunningContainerStats};
 use docker_api::api::{
     ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
-    History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts, ImagesPruneInfo,
-    Info, RegistryAuth, SearchResult, TagOpts, Version,
+    Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
+    ImagesPruneInfo, Info, RegistryAuth, SearchResult, TagOpts, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -82,6 +82,7 @@ pub enum EventRequest {
     DockerUriChange { uri: String },
     SystemInspect,
     SystemDataUsage,
+    SystemEvents,
     NotifyGui(GuiEvent),
 }
 
@@ -126,6 +127,7 @@ pub enum EventResponse {
     DockerUriChange(anyhow::Result<()>),
     SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
+    SystemEvents(Vec<Event>),
     NotifyGui(GuiEventResponse),
 }
 

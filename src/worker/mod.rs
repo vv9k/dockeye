@@ -1,3 +1,4 @@
+mod events;
 mod image;
 mod logs;
 mod stats;
@@ -6,6 +7,7 @@ use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
     ImageEventResponse, ImageInspectInfo, SystemInspectInfo,
 };
+pub use events::{EventsWorker, EventsWorkerEvent};
 pub use image::{
     export::{ImageExportEvent, ImageExportWorker},
     import::{ImageImportEvent, ImageImportWorker},
@@ -78,6 +80,11 @@ impl DockerWorker {
                 ImagePullWorker::new("".to_string(), None);
             let (_, mut _tx_import_event, mut _rx_import_chunks, mut rx_image_import_results) =
                 ImageImportWorker::new("");
+            let (sys_events_worker, tx_sys_events_event, mut rx_sys_events) = EventsWorker::new();
+            let d = docker.clone();
+            tokio::task::spawn(async move {
+                sys_events_worker.work(d).await;
+            });
             let mut image_export_in_progress = false;
             let mut image_pull_in_progress = false;
             let mut image_import_in_progress = false;
@@ -570,6 +577,16 @@ impl DockerWorker {
                             }
                         }
                         EventRequest::NotifyGui(event) => EventResponse::NotifyGui(event.into()),
+                        EventRequest::SystemEvents => {
+                            if let Err(e) =
+                                tx_sys_events_event.send(EventsWorkerEvent::PollData).await
+                            {
+                                error!("failed to collect system events: {}", e);
+                                continue;
+                            }
+                            let events = rx_sys_events.recv().await.unwrap_or_default();
+                            EventResponse::SystemEvents(events)
+                        }
                     };
                     debug!("sending response to event: {}", event_str);
                     //trace!("{:?}", rsp);

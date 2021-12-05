@@ -3,7 +3,7 @@ use crate::app::App;
 use crate::app::{containers, images};
 use crate::event::SystemInspectInfo;
 
-use docker_api::api::DataUsage;
+use docker_api::api::{DataUsage, Event};
 use egui::{CollapsingHeader, Grid};
 
 const MAX_ITEM_COUNT: usize = 10;
@@ -11,6 +11,7 @@ const MAX_ITEM_COUNT: usize = 10;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum CentralView {
     Home,
+    Events,
     DataUsage,
 }
 
@@ -28,12 +29,14 @@ pub struct SystemTab {
     pub display_all_containers: bool,
     pub display_all_images: bool,
     pub display_all_cache: bool,
+    pub events: Vec<Event>,
 }
 
 impl App {
     pub fn system_view(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| match self.system.central_view {
             CentralView::Home => self.system_details(ui),
+            CentralView::Events => self.system_events(ui),
             CentralView::DataUsage => self.system_data_usage(ui),
         });
     }
@@ -45,12 +48,43 @@ impl App {
     fn system_menu(&mut self, ui: &mut egui::Ui) {
         Grid::new("system_menu").show(ui, |ui| {
             ui.selectable_value(&mut self.system.central_view, CentralView::Home, "home");
+            ui.selectable_value(&mut self.system.central_view, CentralView::Events, "events");
             ui.selectable_value(
                 &mut self.system.central_view,
                 CentralView::DataUsage,
                 "data usage",
             );
         });
+    }
+
+    fn system_events(&mut self, ui: &mut egui::Ui) {
+        ui.add(egui::Label::new("System events").heading().strong());
+        ui.add_space(25.);
+        if !self.system.events.is_empty() {
+            Grid::new("system_events_grid")
+                .spacing((10., 10.))
+                .striped(true)
+                .show(ui, |ui| {
+                    key!(ui, "Id");
+                    key!(ui, "Type");
+                    key!(ui, "Actor");
+                    key!(ui, "Action");
+                    key!(ui, "Time");
+                    key!(ui, "From");
+                    key!(ui, "Status");
+                    ui.end_row();
+                    for event in &self.system.events {
+                        val!(ui, event.id.as_deref().unwrap_or_default());
+                        val!(ui, &event.typ);
+                        val!(ui, &event.actor.id);
+                        val!(ui, &event.action);
+                        val!(ui, &event.time.to_rfc2822());
+                        val!(ui, event.from.as_deref().unwrap_or_default());
+                        val!(ui, event.status.as_deref().unwrap_or_default());
+                        ui.end_row();
+                    }
+                });
+        }
     }
 
     fn system_data_usage(&mut self, ui: &mut egui::Ui) {
