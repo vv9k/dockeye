@@ -1,3 +1,5 @@
+use crate::worker::WorkerEvent;
+
 use docker_api::{
     api::{Event, EventsOpts},
     Docker,
@@ -8,28 +10,18 @@ use tokio::sync::mpsc;
 
 use chrono::{DateTime, TimeZone, Utc};
 
-#[derive(Debug, PartialEq)]
-pub enum EventsWorkerEvent {
-    PollData,
-    Kill,
-}
-
 #[derive(Debug)]
 pub struct EventsWorker {
-    pub rx_events: mpsc::Receiver<EventsWorkerEvent>,
+    pub rx_events: mpsc::Receiver<WorkerEvent>,
     pub tx_sys_events: mpsc::Sender<Vec<Event>>,
     pub sys_events: Vec<Event>,
     pub last_timestamp: DateTime<Utc>,
 }
 
 impl EventsWorker {
-    pub fn new() -> (
-        Self,
-        mpsc::Sender<EventsWorkerEvent>,
-        mpsc::Receiver<Vec<Event>>,
-    ) {
+    pub fn new() -> (Self, mpsc::Sender<WorkerEvent>, mpsc::Receiver<Vec<Event>>) {
         let (tx_sys_events, rx_sys_events) = mpsc::channel::<Vec<Event>>(128);
-        let (tx_events, rx_events) = mpsc::channel::<EventsWorkerEvent>(128);
+        let (tx_events, rx_events) = mpsc::channel::<WorkerEvent>(128);
 
         (
             Self {
@@ -73,8 +65,8 @@ impl EventsWorker {
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(EventsWorkerEvent::PollData) => self.send_events().await,
-                        Some(EventsWorkerEvent::Kill) => break,
+                        Some(WorkerEvent::PollData) => self.send_events().await,
+                        Some(WorkerEvent::Kill) => break,
                         None => continue,
 
                     }

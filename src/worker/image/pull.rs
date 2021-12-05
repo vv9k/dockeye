@@ -1,3 +1,5 @@
+use crate::worker::WorkerEvent;
+
 use anyhow::Error;
 use docker_api::{
     api::{ImageBuildChunk, ImageId, PullOpts, RegistryAuth},
@@ -7,18 +9,11 @@ use futures::StreamExt;
 use log::error;
 use tokio::sync::mpsc;
 
-#[derive(Debug, PartialEq)]
-pub enum ImagePullEvent {
-    PollData,
-    #[allow(dead_code)]
-    Kill,
-}
-
 #[derive(Debug)]
 pub struct ImagePullWorker {
     pub image_id: ImageId,
     pub auth: Option<RegistryAuth>,
-    pub rx_events: mpsc::Receiver<ImagePullEvent>,
+    pub rx_events: mpsc::Receiver<WorkerEvent>,
     pub tx_results: mpsc::Sender<anyhow::Result<ImageId>>,
     pub tx_chunks: mpsc::Sender<Vec<ImageBuildChunk>>,
 }
@@ -30,13 +25,13 @@ impl ImagePullWorker {
         auth: Option<RegistryAuth>,
     ) -> (
         Self,
-        mpsc::Sender<ImagePullEvent>,
+        mpsc::Sender<WorkerEvent>,
         mpsc::Receiver<Vec<ImageBuildChunk>>,
         mpsc::Receiver<anyhow::Result<ImageId>>,
     ) {
         let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<ImageId>>(128);
         let (tx_chunks, rx_chunks) = mpsc::channel::<Vec<ImageBuildChunk>>(128);
-        let (tx_events, rx_events) = mpsc::channel::<ImagePullEvent>(128);
+        let (tx_events, rx_events) = mpsc::channel::<WorkerEvent>(128);
 
         (
             Self {
@@ -120,11 +115,11 @@ impl ImagePullWorker {
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(ImagePullEvent::PollData) =>
+                        Some(WorkerEvent::PollData) =>
                         if let Err(e) = self.tx_chunks.send(std::mem::take(&mut chunks)).await {
                             error!("failed to send image pull chunks: {}", e);
                         },
-                        Some(ImagePullEvent::Kill) => break,
+                        Some(WorkerEvent::Kill) => break,
                         None => continue,
                     }
                 }

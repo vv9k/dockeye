@@ -1,3 +1,5 @@
+use crate::worker::WorkerEvent;
+
 use anyhow::Error;
 use docker_api::{
     api::{ImageBuildChunk, ImageId},
@@ -7,17 +9,10 @@ use futures::StreamExt;
 use log::error;
 use tokio::sync::mpsc;
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq)]
-pub enum ImageImportEvent {
-    PollData,
-    Kill,
-}
-
 #[derive(Debug)]
 pub struct ImageImportWorker {
     pub image_archive: std::path::PathBuf,
-    pub rx_events: mpsc::Receiver<ImageImportEvent>,
+    pub rx_events: mpsc::Receiver<WorkerEvent>,
     pub tx_results: mpsc::Sender<anyhow::Result<ImageId>>,
     pub tx_chunks: mpsc::Sender<Vec<ImageBuildChunk>>,
 }
@@ -28,13 +23,13 @@ impl ImageImportWorker {
         image_archive: impl AsRef<std::path::Path>,
     ) -> (
         Self,
-        mpsc::Sender<ImageImportEvent>,
+        mpsc::Sender<WorkerEvent>,
         mpsc::Receiver<Vec<ImageBuildChunk>>,
         mpsc::Receiver<anyhow::Result<ImageId>>,
     ) {
         let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<ImageId>>(128);
         let (tx_chunks, rx_chunks) = mpsc::channel::<Vec<ImageBuildChunk>>(128);
-        let (tx_events, rx_events) = mpsc::channel::<ImageImportEvent>(128);
+        let (tx_events, rx_events) = mpsc::channel::<WorkerEvent>(128);
 
         (
             Self {
@@ -135,8 +130,8 @@ impl ImageImportWorker {
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(ImageImportEvent::PollData) => send_chunks!(),
-                        Some(ImageImportEvent::Kill) => break,
+                        Some(WorkerEvent::PollData) => send_chunks!(),
+                        Some(WorkerEvent::Kill) => break,
                         None => continue,
                     }
                 }

@@ -1,3 +1,5 @@
+use crate::worker::WorkerEvent;
+
 use docker_api::api::{
     BlkioStats, ContainerId, CpuStats, MemoryStat, MemoryStats, NetworkStats, PidsStats, Stats,
 };
@@ -112,14 +114,8 @@ fn calculate_cpu_percent_usage(stats: Option<&CpuStats>, prev_cpu: u64, prev_sys
 }
 
 #[derive(Debug)]
-pub enum StatsWorkerEvent {
-    PollData,
-    Kill,
-}
-
-#[derive(Debug)]
 pub struct StatsWorker {
-    pub rx_events: mpsc::Receiver<StatsWorkerEvent>,
+    pub rx_events: mpsc::Receiver<WorkerEvent>,
     pub tx_stats: mpsc::Sender<Box<RunningContainerStats>>,
     pub current_id: ContainerId,
     pub prev_cpu: u64,
@@ -133,11 +129,11 @@ impl StatsWorker {
         id: impl Into<ContainerId>,
     ) -> (
         Self,
-        mpsc::Sender<StatsWorkerEvent>,
+        mpsc::Sender<WorkerEvent>,
         mpsc::Receiver<Box<RunningContainerStats>>,
     ) {
         let (tx_stats, rx_stats) = mpsc::channel::<Box<RunningContainerStats>>(128);
-        let (tx_events, rx_events) = mpsc::channel::<StatsWorkerEvent>(128);
+        let (tx_events, rx_events) = mpsc::channel::<WorkerEvent>(128);
 
         (
             Self {
@@ -200,8 +196,8 @@ impl StatsWorker {
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(StatsWorkerEvent::PollData) => self.send_stats().await,
-                        Some(StatsWorkerEvent::Kill) => break,
+                        Some(WorkerEvent::PollData) => self.send_stats().await,
+                        Some(WorkerEvent::Kill) => break,
                         None => continue,
                     }
                 },

@@ -1,3 +1,5 @@
+use crate::worker::WorkerEvent;
+
 use bytes::Bytes;
 use docker_api::{
     api::{ContainerId, LogsOpts},
@@ -10,16 +12,10 @@ use tokio::sync::mpsc;
 #[derive(Debug, Default, Clone)]
 pub struct Logs(pub Vec<Bytes>);
 
-#[derive(Debug, PartialEq)]
-pub enum LogWorkerEvent {
-    PollData,
-    Kill,
-}
-
 #[derive(Debug)]
 pub struct LogsWorker {
     pub current_id: ContainerId,
-    pub rx_events: mpsc::Receiver<LogWorkerEvent>,
+    pub rx_events: mpsc::Receiver<WorkerEvent>,
     pub tx_logs: mpsc::Sender<Box<Logs>>,
     pub logs: Box<Logs>,
 }
@@ -27,13 +23,9 @@ pub struct LogsWorker {
 impl LogsWorker {
     pub fn new(
         current_id: impl Into<ContainerId>,
-    ) -> (
-        Self,
-        mpsc::Sender<LogWorkerEvent>,
-        mpsc::Receiver<Box<Logs>>,
-    ) {
+    ) -> (Self, mpsc::Sender<WorkerEvent>, mpsc::Receiver<Box<Logs>>) {
         let (tx_logs, rx_logs) = mpsc::channel::<Box<Logs>>(128);
-        let (tx_events, rx_events) = mpsc::channel::<LogWorkerEvent>(128);
+        let (tx_events, rx_events) = mpsc::channel::<WorkerEvent>(128);
 
         (
             Self {
@@ -85,8 +77,8 @@ impl LogsWorker {
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(LogWorkerEvent::PollData) => self.send_logs().await,
-                        Some(LogWorkerEvent::Kill) => break,
+                        Some(WorkerEvent::PollData) => self.send_logs().await,
+                        Some(WorkerEvent::Kill) => break,
                         None => continue,
 
                     }

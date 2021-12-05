@@ -1,3 +1,5 @@
+use crate::worker::WorkerEvent;
+
 use anyhow::Error;
 use docker_api::{api::ImageId, Docker};
 use futures::StreamExt;
@@ -7,17 +9,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq)]
-pub enum ImageExportEvent {
-    Kill,
-}
-
 #[derive(Debug)]
 pub struct ImageExportWorker {
     pub image_id: ImageId,
     pub output_path: PathBuf,
-    pub rx_events: mpsc::Receiver<ImageExportEvent>,
+    pub rx_events: mpsc::Receiver<WorkerEvent>,
     pub tx_results: mpsc::Sender<anyhow::Result<(ImageId, PathBuf)>>,
 }
 
@@ -28,11 +24,11 @@ impl ImageExportWorker {
         output_path: PathBuf,
     ) -> (
         Self,
-        mpsc::Sender<ImageExportEvent>,
+        mpsc::Sender<WorkerEvent>,
         mpsc::Receiver<anyhow::Result<(ImageId, PathBuf)>>,
     ) {
         let (tx_results, rx_results) = mpsc::channel::<anyhow::Result<(ImageId, PathBuf)>>(128);
-        let (tx_events, rx_events) = mpsc::channel::<ImageExportEvent>(128);
+        let (tx_events, rx_events) = mpsc::channel::<WorkerEvent>(128);
 
         (
             Self {
@@ -100,8 +96,8 @@ impl ImageExportWorker {
                 }
                 event = self.rx_events.recv() => {
                     match event {
-                        Some(ImageExportEvent::Kill) => break,
-                        None => continue,
+                        Some(WorkerEvent::Kill) => break,
+                        _ => continue,
                     }
                 }
             }

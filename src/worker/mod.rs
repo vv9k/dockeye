@@ -7,14 +7,10 @@ use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
     ImageEventResponse, ImageInspectInfo, SystemInspectInfo,
 };
-pub use events::{EventsWorker, EventsWorkerEvent};
-pub use image::{
-    export::{ImageExportEvent, ImageExportWorker},
-    import::{ImageImportEvent, ImageImportWorker},
-    pull::{ImagePullEvent, ImagePullWorker},
-};
-pub use logs::{LogWorkerEvent, Logs, LogsWorker};
-pub use stats::{RunningContainerStats, StatsWorker, StatsWorkerEvent};
+pub use events::EventsWorker;
+pub use image::{export::ImageExportWorker, import::ImageImportWorker, pull::ImagePullWorker};
+pub use logs::{Logs, LogsWorker};
+pub use stats::{RunningContainerStats, StatsWorker};
 
 use anyhow::{Context, Result};
 use docker_api::{
@@ -27,6 +23,12 @@ use docker_api::{
 use log::{debug, error, trace};
 use std::time::Duration;
 use tokio::sync::mpsc;
+
+#[derive(Debug, PartialEq)]
+pub enum WorkerEvent {
+    PollData,
+    Kill,
+}
 
 pub struct DockerWorker {
     docker: Docker,
@@ -139,12 +141,10 @@ impl DockerWorker {
                                 }
 
                                 if current_id.is_some() {
-                                    if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
+                                    if let Err(e) = tx_logs_event.send(WorkerEvent::Kill).await {
                                         error!("failed to send kill event to log worker: {}", e);
                                     }
-                                    if let Err(e) =
-                                        tx_stats_event.send(StatsWorkerEvent::Kill).await
-                                    {
+                                    if let Err(e) = tx_stats_event.send(WorkerEvent::Kill).await {
                                         error!("failed to send kill event to stats worker: {}", e);
                                     }
                                 }
@@ -218,9 +218,7 @@ impl DockerWorker {
                                 ))
                             }
                             ContainerEvent::Stats => {
-                                if let Err(e) =
-                                    tx_stats_event.send(StatsWorkerEvent::PollData).await
-                                {
+                                if let Err(e) = tx_stats_event.send(WorkerEvent::PollData).await {
                                     error!("failed to collect stats data: {}", e);
                                     continue;
                                 }
@@ -234,7 +232,7 @@ impl DockerWorker {
                                 }
                             }
                             ContainerEvent::Logs => {
-                                if let Err(e) = tx_logs_event.send(LogWorkerEvent::PollData).await {
+                                if let Err(e) = tx_logs_event.send(WorkerEvent::PollData).await {
                                     error!("failed to collect logs: {}", e);
                                     continue;
                                 }
@@ -459,7 +457,7 @@ impl DockerWorker {
                                 if !image_pull_in_progress {
                                     continue;
                                 }
-                                if let Err(e) = tx_pull_event.send(ImagePullEvent::PollData).await {
+                                if let Err(e) = tx_pull_event.send(WorkerEvent::PollData).await {
                                     error!("failed to collect image pull chunks: {}", e);
                                     continue;
                                 }
@@ -540,23 +538,22 @@ impl DockerWorker {
                                 Err(e) => return EventResponse::DockerUriChange(Err(e)),
                             };
                             if image_pull_in_progress {
-                                if let Err(e) = tx_pull_event.send(ImagePullEvent::Kill).await {
+                                if let Err(e) = tx_pull_event.send(WorkerEvent::Kill).await {
                                     error!("failed to kill image pull worker: {}", e);
                                 }
                             }
                             if image_export_in_progress {
-                                if let Err(e) =
-                                    _tx_image_export_event.send(ImageExportEvent::Kill).await
+                                if let Err(e) = _tx_image_export_event.send(WorkerEvent::Kill).await
                                 {
                                     error!("failed to kill image export worker: {}", e);
                                 }
                             }
 
                             if let Some(id) = current_id.as_ref() {
-                                if let Err(e) = tx_logs_event.send(LogWorkerEvent::Kill).await {
+                                if let Err(e) = tx_logs_event.send(WorkerEvent::Kill).await {
                                     error!("failed to kill logs worker: {}", e);
                                 }
-                                if let Err(e) = tx_stats_event.send(StatsWorkerEvent::Kill).await {
+                                if let Err(e) = tx_stats_event.send(WorkerEvent::Kill).await {
                                     error!("failed to kill stats worker: {}", e);
                                 }
 
@@ -602,9 +599,7 @@ impl DockerWorker {
                         }
                         EventRequest::NotifyGui(event) => EventResponse::NotifyGui(event.into()),
                         EventRequest::SystemEvents => {
-                            if let Err(e) =
-                                tx_sys_events_event.send(EventsWorkerEvent::PollData).await
-                            {
+                            if let Err(e) = tx_sys_events_event.send(WorkerEvent::PollData).await {
                                 error!("failed to collect system events: {}", e);
                                 continue;
                             }
