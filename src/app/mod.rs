@@ -53,12 +53,18 @@ pub struct Timers {
     pub system_inspect: SystemTime,
 }
 
+impl Timers {
+    pub fn restart(&mut self) {
+        *self = Self::default();
+    }
+}
+
 impl Default for Timers {
     fn default() -> Self {
         Self {
-            update_time: SystemTime::now(),
-            data_usage: SystemTime::now(),
-            system_inspect: SystemTime::now(),
+            update_time: SystemTime::UNIX_EPOCH,
+            data_usage: SystemTime::UNIX_EPOCH,
+            system_inspect: SystemTime::UNIX_EPOCH,
         }
     }
 }
@@ -343,7 +349,6 @@ impl App {
             > 30
         {
             self.send_event_notify(EventRequest::SystemDataUsage);
-            self.send_event_notify(EventRequest::SystemInspect);
             self.timers.data_usage = SystemTime::now();
         }
 
@@ -733,6 +738,7 @@ impl App {
     fn clear_all(&mut self) {
         self.containers.clear();
         self.images.clear();
+        self.timers.restart();
     }
 
     fn set_container(&mut self, container: Box<ContainerDetails>) {
