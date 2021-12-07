@@ -2,6 +2,8 @@ mod app;
 mod event;
 mod worker;
 pub use app::{settings, App};
+
+use chrono::{DateTime, Utc};
 use clipboard::ClipboardProvider;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
 pub use worker::DockerWorker;
@@ -41,8 +43,13 @@ pub fn conv_b(bytes: u64) -> String {
     conv_fb(bytes as f64)
 }
 
-pub fn format_date(datetime: &chrono::DateTime<chrono::Utc>) -> String {
-    datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)
+pub fn format_date(datetime: &DateTime<Utc>) -> String {
+    datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+}
+
+pub fn convert_naive_date(secs: i64) -> DateTime<Utc> {
+    let naive = chrono::NaiveDateTime::from_timestamp(secs, 0);
+    DateTime::from_utc(naive, Utc)
 }
 
 fn save_to_clipboard(text: String) -> Result<(), Box<dyn std::error::Error>> {

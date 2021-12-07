@@ -1,7 +1,7 @@
 use crate::app::ui::{icon, key, key_val, val};
-use crate::app::App;
-use crate::app::{containers, images};
+use crate::app::{containers, images, App};
 use crate::event::SystemInspectInfo;
+use crate::{convert_naive_date, format_date};
 
 use docker_api::api::{DataUsage, Event};
 use egui::{CollapsingHeader, Grid};
@@ -201,16 +201,13 @@ impl App {
                                     ui.add(icon);
                                     val!(ui, name);
                                 });
-                                let naive =
-                                    chrono::NaiveDateTime::from_timestamp(container.created, 0);
-                                let datetime: chrono::DateTime<chrono::Utc> =
-                                    chrono::DateTime::from_utc(naive, chrono::Utc);
+                                let datetime = convert_naive_date(container.created);
                                 let command = if container.command.len() > 32 {
                                     &container.command[..32]
                                 } else {
                                     &container.command[..]
                                 };
-                                val!(ui, datetime.to_rfc2822());
+                                val!(ui, format_date(&datetime));
                                 val!(ui, images::trim_id(&container.image));
                                 val!(ui, command);
                                 val!(
@@ -295,16 +292,13 @@ impl App {
                                 } else {
                                     images::trim_id(&image.id)
                                 };
-                                let naive =
-                                    chrono::NaiveDateTime::from_timestamp(image.created as i64, 0);
-                                let datetime: chrono::DateTime<chrono::Utc> =
-                                    chrono::DateTime::from_utc(naive, chrono::Utc);
+                                let datetime = convert_naive_date(image.created as i64);
 
                                 ui.scope(|ui| {
                                     ui.add(images::icon());
                                     val!(ui, name);
                                 });
-                                val!(ui, datetime.to_rfc2822());
+                                val!(ui, format_date(&datetime));
                                 val!(ui, image.containers);
                                 val!(ui, crate::conv_b(image.size as u64));
                                 val!(ui, crate::conv_b(image.shared_size as u64));
@@ -369,7 +363,7 @@ impl App {
                                         val!(ui, images::trim_id(&cache.id));
                                     });
                                     val!(ui, &cache.type_);
-                                    val!(ui, cache.created_at.to_rfc2822());
+                                    val!(ui, format_date(&cache.created_at));
                                     val!(ui, cache.in_use);
                                     val!(ui, cache.shared);
                                     val!(ui, cache.usage_count);
@@ -413,7 +407,7 @@ impl App {
                 key_val!(ui, "Kernel version:", &system.version.kernel_version);
                 key_val!(ui, "Go version:", &system.version.go_version);
                 key_val!(ui, "Git commit:", &system.version.git_commit);
-                key_val!(ui, "Build time:", system.version.build_time.to_rfc2822());
+                key_val!(ui, "Build time:", format_date(&system.version.build_time));
 
                 if let Some(labels) = &system.info.labels {
                     key!(ui, "Labels:");

@@ -639,7 +639,7 @@ impl App {
             self.link_image(ui, &container.image, None);
             ui.end_row();
 
-            key_val!(ui, "Created:", container.created.to_rfc2822());
+            key_val!(ui, "Created:", crate::format_date(&container.created));
             key_val!(ui, "State:", container.state.status.as_ref());
 
             if let Some(config) = &container.config {

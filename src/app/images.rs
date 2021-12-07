@@ -4,8 +4,9 @@ use crate::app::{
     ui::{key, key_val, val},
     App,
 };
-use crate::event::{EventRequest, GuiEvent, ImageEvent};
-use crate::ImageInspectInfo;
+use crate::event::{EventRequest, GuiEvent, ImageEvent, ImageInspectInfo};
+use crate::format_date;
+
 use docker_api::api::{
     ImageBuildChunk, ImageIdRef, ImageInfo, RegistryAuth, SearchResult, TagOpts,
 };
@@ -246,7 +247,7 @@ impl App {
 
                                         ui.add_space(5.);
                                         ui.add(
-                                            Label::new(&image.created.to_rfc2822())
+                                            Label::new(format_date(&image.created))
                                                 .italics()
                                                 .strong()
                                                 .wrap(true),
@@ -385,7 +386,7 @@ impl App {
 
                 key_val!(ui, "Comment:", &details.comment);
                 key_val!(ui, "Author:", &details.author);
-                key_val!(ui, "Created:", &details.created.to_rfc2822());
+                key_val!(ui, "Created:", format_date(&details.created));
                 key_val!(ui, "Architecture:", &details.architecture);
                 key_val!(
                     ui,
@@ -456,7 +457,7 @@ impl App {
                         Grid::new("history_grid").show(ui, |ui| {
                             for history in &image.history {
                                 key_val!(ui, "ID:", &history.id);
-                                key_val!(ui, "Created:", &history.created.to_rfc2822());
+                                key_val!(ui, "Created:", format_date(&history.created));
                                 key_val!(ui, "Size:", &crate::conv_b(history.size as u64));
                                 key_val!(ui, "Comment:", &history.comment);
                                 if let Some(tags) = history.tags.as_ref() {
