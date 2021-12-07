@@ -1,3 +1,6 @@
+# 0.3.0
+- Add an option to respect `DOCKER_HOST` variable to the settings. If the checkbox is checked and the variable is present it will be used as the host uri.
+
 # 0.2.0
 - Explicitly sort sidepanel images/containers by newest
 - Persist settings as YAML file in appropriate OS config directory

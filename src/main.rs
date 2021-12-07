@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         initial_window_size: Some((1280., 720.).into()),
         ..Default::default()
     };
-    let uri = app.docker_uri().to_string();
+    let uri = app.docker_uri();
 
     DockerWorker::spawn(rt, uri, rx_req, tx_rsp);
 

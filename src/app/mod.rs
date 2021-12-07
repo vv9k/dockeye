@@ -758,13 +758,21 @@ impl App {
             self.add_error(e);
         } else {
             self.send_event_notify(EventRequest::DockerUriChange {
-                uri: self.settings_window.settings.docker_addr.clone(),
+                uri: self.docker_uri(),
             });
         }
     }
 
-    pub fn docker_uri(&self) -> &str {
-        &self.settings_window.settings.docker_addr
+    pub fn docker_uri(&self) -> String {
+        if self.settings_window.settings.use_docker_host_env {
+            match std::env::var("DOCKER_HOST") {
+                Ok(uri) => return uri,
+                Err(e) => {
+                    log::error!("failed to read DOCKER_HOST environment variable: {}", e);
+                }
+            }
+        }
+        self.settings_window.settings.docker_addr.clone()
     }
 
     fn handle_popups(&mut self) {

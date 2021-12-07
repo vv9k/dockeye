@@ -16,6 +16,7 @@ pub fn dir() -> Option<PathBuf> {
 pub struct Settings {
     pub docker_addr: String,
     pub fonts: FontSizes,
+    pub use_docker_host_env: bool,
 }
 
 impl Default for Settings {
@@ -23,6 +24,7 @@ impl Default for Settings {
         Self {
             docker_addr: crate::DEFAULT_DOCKER_ADDR.to_string(),
             fonts: FontSizes::default(),
+            use_docker_host_env: false,
         }
     }
 }
@@ -106,6 +108,12 @@ impl SettingsWindow {
  - http://some.http.con.com
  - https://some.https.con.com
 "#,
+                    );
+                    ui.end_row();
+
+                    ui.checkbox(
+                        &mut self.settings.use_docker_host_env,
+                        "Use DOCKER_HOST env var",
                     );
                     ui.end_row();
 
