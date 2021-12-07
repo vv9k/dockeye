@@ -70,7 +70,7 @@ impl App {
             if id.len() > 12 {
                 &id[..12]
             } else {
-                &id[..]
+                id
             }
         }
 
