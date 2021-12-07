@@ -52,7 +52,6 @@ impl EventsWorker {
                 event = event_stream.next() => {
                     match event {
                         Some(Ok(event)) => {
-                            log::trace!("adding event");
                                 self.sys_events.push(event);
                             }
                         Some(Err(e)) => {

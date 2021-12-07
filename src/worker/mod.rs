@@ -57,6 +57,7 @@ impl DockerWorker {
             rx_req,
             tx_rsp,
         } = self;
+        trace!("starting work");
         // used to transfer requests between the listener task and the worker task
         let (inner_tx_req, inner_rx_req) = mpsc::channel::<EventRequest>(64);
 
@@ -72,12 +73,14 @@ impl DockerWorker {
         docker_addr: String,
         rx_req: mpsc::Receiver<EventRequest>,
         tx_rsp: mpsc::Sender<EventResponse>,
-    ) {
+    ) -> std::thread::JoinHandle<Result<()>> {
+        trace!("spawning worker thread for {}", docker_addr);
         std::thread::spawn(move || -> Result<()> {
             let worker = DockerWorker::new(docker_addr, rx_req, tx_rsp)?;
+            trace!("got worker {}", &worker.uri);
 
             runtime.block_on(worker.work())
-        });
+        })
     }
 }
 
@@ -86,6 +89,7 @@ async fn listener_task(
     mut rx_req: mpsc::Receiver<EventRequest>,
     inner_tx_req: mpsc::Sender<EventRequest>,
 ) {
+    trace!("starting listener task");
     loop {
         if let Some(req) = rx_req.recv().await {
             debug!("[listener] got request: {:?}", req);
@@ -102,6 +106,7 @@ async fn inner_work(
     mut inner_rx_req: mpsc::Receiver<EventRequest>,
     tx_rsp: mpsc::Sender<EventResponse>,
 ) {
+    trace!("starting worker task");
     if let Err(e) = docker.adjust_api_version().await {
         error!("failed to adjust docker API version: {}", e);
     }
