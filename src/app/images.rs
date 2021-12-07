@@ -107,7 +107,7 @@ impl App {
             .add(
                 egui::Label::new(
                     name.map(|n| n.trim_start_matches('/'))
-                        .unwrap_or_else(|| trim_id(id)),
+                        .unwrap_or_else(|| id),
                 )
                 .strong()
                 .sense(egui::Sense {
@@ -352,7 +352,7 @@ impl App {
             ui.horizontal(|ui| {
                 ui.add(icon());
                 ui.add(
-                    Label::new(name(&details.id, Some(details.repo_tags.as_ref())))
+                    Label::new(name(&details.id, Some(&details.repo_tags)))
                         .heading()
                         .wrap(true)
                         .strong(),
@@ -376,6 +376,8 @@ impl App {
                     });
                     ui.end_row();
                 }
+
+                key_val!(ui, "ID:", &details.id);
 
                 key!(ui, "Parent:");
                 self.link_image(ui, &details.parent, None);

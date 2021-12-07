@@ -17,13 +17,11 @@ use egui::{Grid, Label};
 
 const PAGE_SIZE: usize = 1024;
 
-pub fn color_for_state(state: &str) -> egui::Color32 {
-    if state == "running" {
-        egui::Color32::GREEN
-    } else if state == "paused" {
-        egui::Color32::YELLOW
-    } else {
-        egui::Color32::RED
+pub fn color_for_state(state: &ContainerStatus) -> egui::Color32 {
+    match state {
+        ContainerStatus::Running => egui::Color32::GREEN,
+        ContainerStatus::Paused => egui::Color32::YELLOW,
+        _ => egui::Color32::RED,
     }
 }
 
@@ -430,16 +428,20 @@ impl App {
                                                 ),
                                                     ));
                                                 }
-                                                if &container.state == "running" {
-                                                    btn!(stop => self, ui, container, errors);
-                                                    btn!(pause => self, ui, container, errors);
-                                                    btn!(restart => self, ui, container, errors);
-                                                } else if &container.state == "paused" {
+                                                match container.state {
+                                                    ContainerStatus::Running => {
+                                                        btn!(stop => self, ui, container, errors);
+                                                        btn!(pause => self, ui, container, errors);
+                                                        btn!(restart => self, ui, container, errors);
+                                                    }
+                                                    ContainerStatus::Paused => {
                                                     btn!(stop => self, ui, container, errors);
                                                     btn!(unpause => self, ui, container, errors);
                                                     btn!(restart => self, ui, container, errors);
-                                                } else {
+                                                    }
+                                                    _ => {
                                                     btn!(start => self, ui, container, errors);
+                                                    }
                                                 }
                                             });
                                             ui.end_row();
@@ -637,56 +639,59 @@ impl App {
             self.link_image(ui, &container.image, None);
             ui.end_row();
 
-            key_val!(
-                ui,
-                "Command:",
-                &container.config.cmd.as_deref().unwrap_or(&[]).join(" ")
-            );
-
-            if let Some(entrypoint) = container.config.entrypoint.as_ref() {
-                key_val!(ui, "Entrypoint:", &entrypoint.join(" "));
-            }
-
-            key!(ui, "Labels:");
-            ui.end_row();
-            if let Some(labels) = container.config.labels.as_ref() {
-                if !labels.is_empty() {
-                    ui.label("          ");
-                    Grid::new("labels_grid").show(ui, |ui| {
-                        let mut labels = labels.iter().collect::<Vec<_>>();
-                        labels.sort();
-                        for (k, v) in labels {
-                            val!(ui, &k);
-                            val!(ui, &v);
-                            ui.end_row();
-                        }
-                    });
-                    ui.end_row();
-                }
-            }
-
             key_val!(ui, "Created:", container.created.to_rfc2822());
             key_val!(ui, "State:", container.state.status.as_ref());
-            key_val!(ui, "Hostname:", &container.config.hostname);
 
-            if !container.config.domainname.is_empty() {
-                key_val!(ui, "Domainname:", &container.config.domainname);
-            }
+            if let Some(config) = &container.config {
+                key_val!(
+                    ui,
+                    "Command:",
+                    &config.cmd.as_deref().unwrap_or(&[]).join(" ")
+                );
 
-            key_val!(ui, "User:", &container.config.user);
-            key_val!(ui, "Working dir:", &container.config.working_dir);
+                if let Some(entrypoint) = config.entrypoint.as_ref() {
+                    key_val!(ui, "Entrypoint:", &entrypoint.join(" "));
+                }
 
-            if let Some(shell) = container.config.shell.as_ref() {
-                key_val!(ui, "Shell:", &shell.join(" "));
-            }
+                key!(ui, "Labels:");
+                ui.end_row();
+                if let Some(labels) = config.labels.as_ref() {
+                    if !labels.is_empty() {
+                        ui.label("          ");
+                        Grid::new("labels_grid").show(ui, |ui| {
+                            let mut labels = labels.iter().collect::<Vec<_>>();
+                            labels.sort();
+                            for (k, v) in labels {
+                                val!(ui, &k);
+                                val!(ui, &v);
+                                ui.end_row();
+                            }
+                        });
+                        ui.end_row();
+                    }
+                }
 
-            key!(ui, "Env: ");
-            ui.end_row();
-            if !container.config.env.is_empty() {
-                for var in &container.config.env {
-                    ui.scope(|_| {});
-                    val!(ui, &var);
-                    ui.end_row();
+                key_val!(ui, "Hostname:", &config.hostname);
+
+                if !config.domainname.is_empty() {
+                    key_val!(ui, "Domainname:", &config.domainname);
+                }
+
+                key_val!(ui, "User:", &config.user);
+                key_val!(ui, "Working dir:", &config.working_dir);
+
+                if let Some(shell) = config.shell.as_ref() {
+                    key_val!(ui, "Shell:", &shell.join(" "));
+                }
+
+                key!(ui, "Env: ");
+                ui.end_row();
+                if !config.env.is_empty() {
+                    for var in &config.env {
+                        ui.scope(|_| {});
+                        val!(ui, &var);
+                        ui.end_row();
+                    }
                 }
             }
 

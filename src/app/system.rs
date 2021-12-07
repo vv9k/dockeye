@@ -364,12 +364,12 @@ impl App {
                 key_val!(ui, "Git commit:", &system.version.git_commit);
                 key_val!(ui, "Build time:", system.version.build_time.to_rfc2822());
 
-                if !system.info.labels.is_empty() {
+                if let Some(labels) = &system.info.labels {
                     key!(ui, "Labels:");
                     ui.end_row();
                     ui.label("          ");
                     Grid::new("labels_grid").show(ui, |ui| {
-                        let mut labels = system.info.labels.iter().collect::<Vec<_>>();
+                        let mut labels = labels.iter().collect::<Vec<_>>();
                         labels.sort();
                         for label in labels {
                             val!(ui, &label);
