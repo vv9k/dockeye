@@ -8,6 +8,12 @@ use egui::{CollapsingHeader, Grid};
 
 const MAX_ITEM_COUNT: usize = 10;
 
+#[derive(Default, Debug)]
+pub struct EventsViewData {
+    pub page: usize,
+    pub events: Vec<Event>,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum CentralView {
     Home,
@@ -29,7 +35,7 @@ pub struct SystemTab {
     pub display_all_containers: bool,
     pub display_all_images: bool,
     pub display_all_cache: bool,
-    pub events: Vec<Event>,
+    pub events_view_data: EventsViewData,
 }
 
 impl App {
@@ -58,29 +64,74 @@ impl App {
     }
 
     fn system_events(&mut self, ui: &mut egui::Ui) {
+        const PAGE_SIZE: usize = 512;
+
+        fn trim_id(id: &str) -> &str {
+            if id.len() > 12 {
+                &id[..12]
+            } else {
+                &id[..]
+            }
+        }
+
+        let max_page = self.system.events_view_data.events.len() / PAGE_SIZE;
+
+        ui.allocate_space((f32::INFINITY, 0.).into());
+
         ui.add(egui::Label::new("System events").heading().strong());
         ui.add_space(25.);
-        if !self.system.events.is_empty() {
+
+        ui.horizontal(|ui| {
+            if ui
+                .button(icon::ARROW_LEFT)
+                .on_hover_text("Decrease the page")
+                .clicked()
+                && self.system.events_view_data.page > 0
+            {
+                self.system.events_view_data.page -= 1;
+            }
+            ui.add(
+                egui::DragValue::new(&mut self.system.events_view_data.page)
+                    .clamp_range(0..=max_page)
+                    .fixed_decimals(0)
+                    .speed(1.),
+            );
+            if ui
+                .button(icon::ARROW_RIGHT)
+                .on_hover_text("Increase the page")
+                .clicked()
+                && self.system.events_view_data.page < max_page
+            {
+                self.system.events_view_data.page += 1;
+            }
+        });
+
+        if !self.system.events_view_data.events.is_empty() {
             Grid::new("system_events_grid")
-                .spacing((10., 10.))
+                .spacing((20., 20.))
                 .striped(true)
                 .show(ui, |ui| {
+                    key!(ui, "Time");
                     key!(ui, "Id");
                     key!(ui, "Type");
-                    key!(ui, "Actor");
-                    key!(ui, "Action");
-                    key!(ui, "Time");
-                    key!(ui, "From");
                     key!(ui, "Status");
+                    key!(ui, "From");
+                    key!(ui, "Actor");
                     ui.end_row();
-                    for event in &self.system.events {
-                        val!(ui, event.id.as_deref().unwrap_or_default());
+                    for event in self
+                        .system
+                        .events_view_data
+                        .events
+                        .iter()
+                        .skip(self.system.events_view_data.page * PAGE_SIZE)
+                        .take(PAGE_SIZE)
+                    {
+                        val!(ui, crate::format_date(&event.time));
+                        val!(ui, event.id.as_deref().map(trim_id).unwrap_or_default());
                         val!(ui, &event.typ);
-                        val!(ui, &event.actor.id);
-                        val!(ui, &event.action);
-                        val!(ui, &event.time.to_rfc2822());
-                        val!(ui, event.from.as_deref().unwrap_or_default());
                         val!(ui, event.status.as_deref().unwrap_or_default());
+                        val!(ui, event.from.as_deref().unwrap_or_default());
+                        val!(ui, &event.actor.id);
                         ui.end_row();
                     }
                 });

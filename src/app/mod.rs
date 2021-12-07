@@ -51,6 +51,7 @@ pub struct Timers {
     pub update_time: SystemTime,
     pub data_usage: SystemTime,
     pub system_inspect: SystemTime,
+    pub events: SystemTime,
 }
 
 impl Timers {
@@ -65,6 +66,7 @@ impl Default for Timers {
             update_time: SystemTime::UNIX_EPOCH,
             data_usage: SystemTime::UNIX_EPOCH,
             system_inspect: SystemTime::UNIX_EPOCH,
+            events: SystemTime::UNIX_EPOCH,
         }
     }
 }
@@ -103,8 +105,6 @@ impl epi::App for App {
             ContainerListOpts::builder().all(true).build(),
         ))));
         self.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
-        self.send_event_notify(EventRequest::SystemInspect);
-        self.send_event_notify(EventRequest::SystemDataUsage);
     }
 
     fn save(&mut self, _storage: &mut dyn epi::Storage) {
@@ -340,6 +340,11 @@ impl App {
             self.timers.system_inspect = SystemTime::now();
         }
 
+        if self.timers.events.elapsed().unwrap_or_default().as_secs() > 10 {
+            self.send_event_notify(EventRequest::SystemEvents);
+            self.timers.events = SystemTime::now();
+        }
+
         if self
             .timers
             .data_usage
@@ -422,7 +427,7 @@ impl App {
                     Err(e) => self.add_error(e),
                 },
                 EventResponse::SystemEvents(events) => {
-                    self.system.events.extend(events);
+                    self.system.events_view_data.events.extend(events);
                 }
                 EventResponse::NotifyGui(event) => match event {
                     GuiEventResponse::SetTab(tab) => {

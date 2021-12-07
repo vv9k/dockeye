@@ -41,6 +41,10 @@ pub fn conv_b(bytes: u64) -> String {
     conv_fb(bytes as f64)
 }
 
+pub fn format_date(datetime: &chrono::DateTime<chrono::Utc>) -> String {
+    datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)
+}
+
 fn save_to_clipboard(text: String) -> Result<(), Box<dyn std::error::Error>> {
     let mut ctx: clipboard::ClipboardContext = ClipboardProvider::new()?;
     ctx.set_contents(text)
