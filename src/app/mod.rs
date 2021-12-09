@@ -30,6 +30,7 @@ pub enum Tab {
     System,
     Containers,
     Images,
+    Networks,
 }
 
 impl AsRef<str> for Tab {
@@ -38,6 +39,7 @@ impl AsRef<str> for Tab {
             Tab::System => "System",
             Tab::Containers => "Containers",
             Tab::Images => "Images",
+            Tab::Networks => "Networks",
         }
     }
 }
@@ -85,6 +87,7 @@ pub struct App {
     notifications: VecDeque<(SystemTime, String)>,
     containers: ContainersTab,
     images: ImagesTab,
+    networks: NetworksTab,
     system: SystemTab,
 
     settings_window: SettingsWindow,
@@ -155,7 +158,7 @@ impl App {
         egui::TopBottomPanel::top("top_panel")
             .frame(frame)
             .show(ctx, |ui| {
-                let tabs = [Tab::System, Tab::Containers, Tab::Images];
+                let tabs = [Tab::System, Tab::Containers, Tab::Images, Tab::Networks];
 
                 ui.horizontal(|ui| {
                     egui::Grid::new("tab_grid").show(ui, |ui| {
@@ -206,6 +209,7 @@ impl App {
                 Tab::Images => {
                     self.images_side(ui);
                 }
+                Tab::Networks => self.networks_side(ui),
             });
     }
 
@@ -230,6 +234,9 @@ impl App {
                 }
                 Tab::Images => {
                     egui::ScrollArea::vertical().show(ui, |ui| self.images_view(ui));
+                }
+                Tab::Networks => {
+                    self.networks_view(ui);
                 }
             }
 
@@ -291,6 +298,7 @@ impl App {
             notifications: VecDeque::new(),
             containers: ContainersTab::default(),
             images: ImagesTab::default(),
+            networks: NetworksTab::default(),
             system: SystemTab::default(),
 
             settings_window: SettingsWindow {
@@ -397,6 +405,10 @@ impl App {
                 if let Some(id) = id {
                     self.send_event_notify(EventRequest::Image(ImageEvent::Inspect { id }));
                 }
+                self.timers.update_time = SystemTime::now();
+            }
+            Tab::Networks if elapsed > 1000 => {
+                self.send_event_notify(EventRequest::Network(NetworkEvent::List(None)));
                 self.timers.update_time = SystemTime::now();
             }
             _ => {}

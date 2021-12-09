@@ -59,6 +59,7 @@ pub mod icon {
     pub const ARROW_LEFT: &str = "\u{2B05}";
     pub const ARROW_RIGHT: &str = "\u{27A1}";
     pub const RESTART: &str = "\u{1F504}";
+    pub const NETWORK: &str = "\u{1F5A7}";
 }
 
 pub fn light_visuals() -> Visuals {
