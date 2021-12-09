@@ -1,16 +1,18 @@
 mod containers;
 mod fonts;
 mod images;
+mod networks;
 pub mod settings;
 mod system;
 mod ui;
 
 use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, GuiEventResponse,
-    ImageEvent, ImageEventResponse,
+    ImageEvent, ImageEventResponse, NetworkEvent, NetworkEventResponse,
 };
 use containers::ContainersTab;
 use images::ImagesTab;
+use networks::NetworksTab;
 use settings::{Settings, SettingsWindow};
 use system::SystemTab;
 
@@ -28,6 +30,7 @@ pub enum Tab {
     System,
     Containers,
     Images,
+    Networks,
 }
 
 impl AsRef<str> for Tab {
@@ -36,6 +39,7 @@ impl AsRef<str> for Tab {
             Tab::System => "System",
             Tab::Containers => "Containers",
             Tab::Images => "Images",
+            Tab::Networks => "Networks",
         }
     }
 }
@@ -83,6 +87,7 @@ pub struct App {
     notifications: VecDeque<(SystemTime, String)>,
     containers: ContainersTab,
     images: ImagesTab,
+    networks: NetworksTab,
     system: SystemTab,
 
     settings_window: SettingsWindow,
@@ -153,7 +158,7 @@ impl App {
         egui::TopBottomPanel::top("top_panel")
             .frame(frame)
             .show(ctx, |ui| {
-                let tabs = [Tab::System, Tab::Containers, Tab::Images];
+                let tabs = [Tab::System, Tab::Containers, Tab::Images, Tab::Networks];
 
                 ui.horizontal(|ui| {
                     egui::Grid::new("tab_grid").show(ui, |ui| {
@@ -204,6 +209,7 @@ impl App {
                 Tab::Images => {
                     self.images_side(ui);
                 }
+                Tab::Networks => self.networks_side(ui),
             });
     }
 
@@ -228,6 +234,9 @@ impl App {
                 }
                 Tab::Images => {
                     egui::ScrollArea::vertical().show(ui, |ui| self.images_view(ui));
+                }
+                Tab::Networks => {
+                    self.networks_view(ui);
                 }
             }
 
@@ -289,6 +298,7 @@ impl App {
             notifications: VecDeque::new(),
             containers: ContainersTab::default(),
             images: ImagesTab::default(),
+            networks: NetworksTab::default(),
             system: SystemTab::default(),
 
             settings_window: SettingsWindow {
@@ -397,6 +407,10 @@ impl App {
                 }
                 self.timers.update_time = SystemTime::now();
             }
+            Tab::Networks if elapsed > 1000 => {
+                self.send_event_notify(EventRequest::Network(NetworkEvent::List(None)));
+                self.timers.update_time = SystemTime::now();
+            }
             _ => {}
         }
     }
@@ -407,6 +421,7 @@ impl App {
             match event {
                 EventResponse::Container(event) => self.handle_container_event_response(event),
                 EventResponse::Image(event) => self.handle_image_event_response(event),
+                EventResponse::Network(event) => self.handle_network_event_response(event),
                 EventResponse::DockerUriChange(res) => match res {
                     Ok(()) => {
                         self.clear_all();
@@ -706,6 +721,38 @@ impl App {
             },
             Tag(res) => match res {
                 Ok(_) => self.add_notification("successfully tagged image"),
+                Err(e) => self.add_error(e),
+            },
+        }
+    }
+
+    fn handle_network_event_response(&mut self, event: NetworkEventResponse) {
+        use NetworkEventResponse::*;
+        match event {
+            Delete(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully deleted network {}", id)),
+                Err(e) => self.add_error(e),
+            },
+            List(mut networks) => {
+                networks.sort_by(|a, b| match b.created.cmp(&a.created) {
+                    std::cmp::Ordering::Equal => a.id.cmp(&b.id),
+                    cmp => cmp,
+                });
+                self.networks.networks = networks;
+            }
+            Prune(res) => match res {
+                Ok(info) => {
+                    let status = info.networks_deleted.into_iter().fold(
+                        "Successfully deleted networks:\n".to_string(),
+                        |mut acc, n| {
+                            acc.push_str(" - ");
+                            acc.push_str(&n);
+                            acc.push('\n');
+                            acc
+                        },
+                    );
+                    self.add_notification(status)
+                }
                 Err(e) => self.add_error(e),
             },
         }

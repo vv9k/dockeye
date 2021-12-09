@@ -5,7 +5,7 @@ mod stats;
 
 use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
-    ImageEventResponse, ImageInspectInfo, SystemInspectInfo,
+    ImageEventResponse, ImageInspectInfo, NetworkEvent, NetworkEventResponse, SystemInspectInfo,
 };
 pub use events::EventsWorker;
 pub use image::{export::ImageExportWorker, import::ImageImportWorker, pull::ImagePullWorker};
@@ -337,6 +337,40 @@ async fn handle_event(
             let events = workers.rx_sys_events.recv().await.unwrap_or_default();
             Some(EventResponse::SystemEvents(events))
         }
+        EventRequest::Network(event) => match event {
+            NetworkEvent::Delete { id } => {
+                Some(EventResponse::Network(NetworkEventResponse::Delete(
+                    docker
+                        .networks()
+                        .get(&id)
+                        .delete()
+                        .await
+                        .map(|_| id)
+                        .context("deleting network failed"),
+                )))
+            }
+            NetworkEvent::List(opts) => Some(EventResponse::Network(NetworkEventResponse::List(
+                match docker
+                    .networks()
+                    .list(&opts.unwrap_or_default())
+                    .await
+                    .context("listing networks failed")
+                {
+                    Ok(networks) => networks,
+                    Err(e) => {
+                        error!("{:?}", e);
+                        vec![]
+                    }
+                },
+            ))),
+            NetworkEvent::Prune => Some(EventResponse::Network(NetworkEventResponse::Prune(
+                docker
+                    .networks()
+                    .prune(&Default::default())
+                    .await
+                    .context("pruning networks failed"),
+            ))),
+        },
     }
 }
 
