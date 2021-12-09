@@ -23,6 +23,34 @@ pub struct ImageInspectInfo {
     pub history: Vec<History>,
 }
 
+//####################################################################################################
+
+#[derive(Debug)]
+pub enum EventRequest {
+    Container(ContainerEvent),
+    Image(ImageEvent),
+    DockerUriChange { uri: String },
+    SystemInspect,
+    SystemDataUsage,
+    SystemEvents,
+    Network(NetworkEvent),
+    NotifyGui(GuiEvent),
+}
+
+#[derive(Debug)]
+pub enum EventResponse {
+    Container(ContainerEventResponse),
+    Image(ImageEventResponse),
+    DockerUriChange(anyhow::Result<()>),
+    SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
+    SystemDataUsage(anyhow::Result<Box<DataUsage>>),
+    SystemEvents(Vec<Event>),
+    NotifyGui(GuiEventResponse),
+    Network(NetworkEventResponse),
+}
+
+//####################################################################################################
+
 #[derive(Debug)]
 pub enum ContainerEvent {
     List(Option<ContainerListOpts>),
@@ -43,6 +71,30 @@ pub enum ContainerEvent {
     ProcessList,
     Changes,
 }
+
+#[derive(Debug)]
+pub enum ContainerEventResponse {
+    List(Vec<ContainerInfo>),
+    Stats(Box<RunningContainerStats>),
+    Logs(Box<Logs>),
+    Details(Box<ContainerDetails>),
+    Delete(Result<ContainerId, (ContainerId, Error)>),
+    Stop(anyhow::Result<()>),
+    Unpause(anyhow::Result<()>),
+    Pause(anyhow::Result<()>),
+    Start(anyhow::Result<()>),
+    InspectNotFound,
+    Create(anyhow::Result<ContainerId>),
+    Rename(anyhow::Result<()>),
+    ForceDelete(anyhow::Result<ContainerId>),
+    Prune(anyhow::Result<ContainersPruneInfo>),
+    Restart(anyhow::Result<ContainerId>),
+    RestartInProgress { id: String },
+    ProcessList(anyhow::Result<Top>),
+    Changes(anyhow::Result<Option<Vec<Change>>>),
+}
+
+//####################################################################################################
 
 #[derive(Debug)]
 pub enum ImageEvent {
@@ -80,53 +132,6 @@ pub enum ImageEvent {
 }
 
 #[derive(Debug)]
-pub enum NetworkEvent {
-    List(Option<NetworkListOpts>),
-    Delete { id: NetworkId },
-    Prune,
-}
-#[derive(Debug)]
-pub enum NetworkEventResponse {
-    List(Vec<NetworkInfo>),
-    Delete(anyhow::Result<NetworkId>),
-    Prune(anyhow::Result<NetworksPruneInfo>),
-}
-
-#[derive(Debug)]
-pub enum EventRequest {
-    Container(ContainerEvent),
-    Image(ImageEvent),
-    DockerUriChange { uri: String },
-    SystemInspect,
-    SystemDataUsage,
-    SystemEvents,
-    Network(NetworkEvent),
-    NotifyGui(GuiEvent),
-}
-
-#[derive(Debug)]
-pub enum ContainerEventResponse {
-    List(Vec<ContainerInfo>),
-    Stats(Box<RunningContainerStats>),
-    Logs(Box<Logs>),
-    Details(Box<ContainerDetails>),
-    Delete(Result<ContainerId, (ContainerId, Error)>),
-    Stop(anyhow::Result<()>),
-    Unpause(anyhow::Result<()>),
-    Pause(anyhow::Result<()>),
-    Start(anyhow::Result<()>),
-    InspectNotFound,
-    Create(anyhow::Result<ContainerId>),
-    Rename(anyhow::Result<()>),
-    ForceDelete(anyhow::Result<ContainerId>),
-    Prune(anyhow::Result<ContainersPruneInfo>),
-    Restart(anyhow::Result<ContainerId>),
-    RestartInProgress { id: String },
-    ProcessList(anyhow::Result<Top>),
-    Changes(anyhow::Result<Option<Vec<Change>>>),
-}
-
-#[derive(Debug)]
 pub enum ImageEventResponse {
     List(Vec<ImageInfo>),
     Inspect(Box<ImageInspectInfo>),
@@ -142,17 +147,22 @@ pub enum ImageEventResponse {
     Tag(anyhow::Result<()>),
 }
 
+//####################################################################################################
+
 #[derive(Debug)]
-pub enum EventResponse {
-    Container(ContainerEventResponse),
-    Image(ImageEventResponse),
-    DockerUriChange(anyhow::Result<()>),
-    SystemInspect(anyhow::Result<Box<SystemInspectInfo>>),
-    SystemDataUsage(anyhow::Result<Box<DataUsage>>),
-    SystemEvents(Vec<Event>),
-    NotifyGui(GuiEventResponse),
-    Network(NetworkEventResponse),
+pub enum NetworkEvent {
+    List(Option<NetworkListOpts>),
+    Delete { id: NetworkId },
+    Prune,
 }
+#[derive(Debug)]
+pub enum NetworkEventResponse {
+    List(Vec<NetworkInfo>),
+    Delete(anyhow::Result<NetworkId>),
+    Prune(anyhow::Result<NetworksPruneInfo>),
+}
+
+//####################################################################################################
 
 #[derive(Debug)]
 pub enum GuiEvent {
