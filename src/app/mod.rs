@@ -17,6 +17,7 @@ use images::ImagesTab;
 use networks::NetworksTab;
 use settings::{Settings, SettingsWindow};
 use system::SystemTab;
+use volumes::VolumesTab;
 
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
@@ -33,6 +34,7 @@ pub enum Tab {
     Containers,
     Images,
     Networks,
+    Volumes,
 }
 
 impl AsRef<str> for Tab {
@@ -42,6 +44,7 @@ impl AsRef<str> for Tab {
             Tab::Containers => "Containers",
             Tab::Images => "Images",
             Tab::Networks => "Networks",
+            Tab::Volumes => "Volumes",
         }
     }
 }
@@ -90,6 +93,7 @@ pub struct App {
     containers: ContainersTab,
     images: ImagesTab,
     networks: NetworksTab,
+    volumes: VolumesTab,
     system: SystemTab,
 
     settings_window: SettingsWindow,
@@ -161,7 +165,13 @@ impl App {
         egui::TopBottomPanel::top("top_panel")
             .frame(frame)
             .show(ctx, |ui| {
-                let tabs = [Tab::System, Tab::Containers, Tab::Images, Tab::Networks];
+                let tabs = [
+                    Tab::System,
+                    Tab::Containers,
+                    Tab::Images,
+                    Tab::Networks,
+                    Tab::Volumes,
+                ];
 
                 ui.horizontal(|ui| {
                     egui::Grid::new("tab_grid").show(ui, |ui| {
@@ -213,6 +223,7 @@ impl App {
                     self.images_side(ui);
                 }
                 Tab::Networks => self.networks_side(ui),
+                Tab::Volumes => self.volumes_side(ui),
             });
     }
 
@@ -240,6 +251,9 @@ impl App {
                 }
                 Tab::Networks => {
                     self.networks_view(ui);
+                }
+                Tab::Volumes => {
+                    self.volumes_view(ui);
                 }
             }
 
@@ -302,6 +316,7 @@ impl App {
             containers: ContainersTab::default(),
             images: ImagesTab::default(),
             networks: NetworksTab::default(),
+            volumes: VolumesTab::default(),
             system: SystemTab::default(),
 
             settings_window: SettingsWindow {
@@ -412,6 +427,10 @@ impl App {
             }
             Tab::Networks if elapsed > 1000 => {
                 self.send_event_notify(EventRequest::Network(NetworkEvent::List(None)));
+                self.timers.update_time = SystemTime::now();
+            }
+            Tab::Volumes if elapsed > 1000 => {
+                self.send_event_notify(EventRequest::Volume(VolumeEvent::List(None)));
                 self.timers.update_time = SystemTime::now();
             }
             _ => {}
