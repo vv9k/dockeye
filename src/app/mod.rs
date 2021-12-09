@@ -1,16 +1,18 @@
 mod containers;
 mod fonts;
 mod images;
+mod networks;
 pub mod settings;
 mod system;
 mod ui;
 
 use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, GuiEventResponse,
-    ImageEvent, ImageEventResponse,
+    ImageEvent, ImageEventResponse, NetworkEvent, NetworkEventResponse,
 };
 use containers::ContainersTab;
 use images::ImagesTab;
+use networks::NetworksTab;
 use settings::{Settings, SettingsWindow};
 use system::SystemTab;
 
@@ -407,6 +409,7 @@ impl App {
             match event {
                 EventResponse::Container(event) => self.handle_container_event_response(event),
                 EventResponse::Image(event) => self.handle_image_event_response(event),
+                EventResponse::Network(event) => self.handle_network_event_response(event),
                 EventResponse::DockerUriChange(res) => match res {
                     Ok(()) => {
                         self.clear_all();
@@ -706,6 +709,38 @@ impl App {
             },
             Tag(res) => match res {
                 Ok(_) => self.add_notification("successfully tagged image"),
+                Err(e) => self.add_error(e),
+            },
+        }
+    }
+
+    fn handle_network_event_response(&mut self, event: NetworkEventResponse) {
+        use NetworkEventResponse::*;
+        match event {
+            Delete(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully deleted network {}", id)),
+                Err(e) => self.add_error(e),
+            },
+            List(mut networks) => {
+                networks.sort_by(|a, b| match b.created.cmp(&a.created) {
+                    std::cmp::Ordering::Equal => a.id.cmp(&b.id),
+                    cmp => cmp,
+                });
+                self.networks.networks = networks;
+            }
+            Prune(res) => match res {
+                Ok(info) => {
+                    let status = info.networks_deleted.into_iter().fold(
+                        "Successfully deleted networks:\n".to_string(),
+                        |mut acc, n| {
+                            acc.push_str(" - ");
+                            acc.push_str(&n);
+                            acc.push('\n');
+                            acc
+                        },
+                    );
+                    self.add_notification(status)
+                }
                 Err(e) => self.add_error(e),
             },
         }

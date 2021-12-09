@@ -4,7 +4,8 @@ use docker_api::api::{
     Change, ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
-    ImagesPruneInfo, Info, RegistryAuth, SearchResult, TagOpts, Top, Version,
+    ImagesPruneInfo, Info, NetworkId, NetworkInfo, NetworkListOpts, NetworksPruneInfo,
+    RegistryAuth, SearchResult, TagOpts, Top, Version,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -79,6 +80,19 @@ pub enum ImageEvent {
 }
 
 #[derive(Debug)]
+pub enum NetworkEvent {
+    List(Option<NetworkListOpts>),
+    Delete { id: NetworkId },
+    Prune,
+}
+#[derive(Debug)]
+pub enum NetworkEventResponse {
+    List(Vec<NetworkInfo>),
+    Delete(anyhow::Result<NetworkId>),
+    Prune(anyhow::Result<NetworksPruneInfo>),
+}
+
+#[derive(Debug)]
 pub enum EventRequest {
     Container(ContainerEvent),
     Image(ImageEvent),
@@ -86,6 +100,7 @@ pub enum EventRequest {
     SystemInspect,
     SystemDataUsage,
     SystemEvents,
+    Network(NetworkEvent),
     NotifyGui(GuiEvent),
 }
 
@@ -136,6 +151,7 @@ pub enum EventResponse {
     SystemDataUsage(anyhow::Result<Box<DataUsage>>),
     SystemEvents(Vec<Event>),
     NotifyGui(GuiEventResponse),
+    Network(NetworkEventResponse),
 }
 
 #[derive(Debug)]
