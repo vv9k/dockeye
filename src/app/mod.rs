@@ -5,16 +5,19 @@ mod networks;
 pub mod settings;
 mod system;
 mod ui;
+mod volumes;
 
 use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, GuiEventResponse,
-    ImageEvent, ImageEventResponse, NetworkEvent, NetworkEventResponse,
+    ImageEvent, ImageEventResponse, NetworkEvent, NetworkEventResponse, VolumeEvent,
+    VolumeEventResponse,
 };
 use containers::ContainersTab;
 use images::ImagesTab;
 use networks::NetworksTab;
 use settings::{Settings, SettingsWindow};
 use system::SystemTab;
+use volumes::VolumesTab;
 
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
@@ -31,6 +34,7 @@ pub enum Tab {
     Containers,
     Images,
     Networks,
+    Volumes,
 }
 
 impl AsRef<str> for Tab {
@@ -40,6 +44,7 @@ impl AsRef<str> for Tab {
             Tab::Containers => "Containers",
             Tab::Images => "Images",
             Tab::Networks => "Networks",
+            Tab::Volumes => "Volumes",
         }
     }
 }
@@ -88,6 +93,7 @@ pub struct App {
     containers: ContainersTab,
     images: ImagesTab,
     networks: NetworksTab,
+    volumes: VolumesTab,
     system: SystemTab,
 
     settings_window: SettingsWindow,
@@ -110,6 +116,7 @@ impl epi::App for App {
             ContainerListOpts::builder().all(true).build(),
         ))));
         self.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
+        self.send_event_notify(EventRequest::Volume(VolumeEvent::List(None)));
     }
 
     fn save(&mut self, _storage: &mut dyn epi::Storage) {
@@ -158,7 +165,13 @@ impl App {
         egui::TopBottomPanel::top("top_panel")
             .frame(frame)
             .show(ctx, |ui| {
-                let tabs = [Tab::System, Tab::Containers, Tab::Images, Tab::Networks];
+                let tabs = [
+                    Tab::System,
+                    Tab::Containers,
+                    Tab::Images,
+                    Tab::Networks,
+                    Tab::Volumes,
+                ];
 
                 ui.horizontal(|ui| {
                     egui::Grid::new("tab_grid").show(ui, |ui| {
@@ -210,6 +223,7 @@ impl App {
                     self.images_side(ui);
                 }
                 Tab::Networks => self.networks_side(ui),
+                Tab::Volumes => self.volumes_side(ui),
             });
     }
 
@@ -237,6 +251,9 @@ impl App {
                 }
                 Tab::Networks => {
                     self.networks_view(ui);
+                }
+                Tab::Volumes => {
+                    self.volumes_view(ui);
                 }
             }
 
@@ -299,6 +316,7 @@ impl App {
             containers: ContainersTab::default(),
             images: ImagesTab::default(),
             networks: NetworksTab::default(),
+            volumes: VolumesTab::default(),
             system: SystemTab::default(),
 
             settings_window: SettingsWindow {
@@ -411,6 +429,10 @@ impl App {
                 self.send_event_notify(EventRequest::Network(NetworkEvent::List(None)));
                 self.timers.update_time = SystemTime::now();
             }
+            Tab::Volumes if elapsed > 1000 => {
+                self.send_event_notify(EventRequest::Volume(VolumeEvent::List(None)));
+                self.timers.update_time = SystemTime::now();
+            }
             _ => {}
         }
     }
@@ -422,6 +444,7 @@ impl App {
                 EventResponse::Container(event) => self.handle_container_event_response(event),
                 EventResponse::Image(event) => self.handle_image_event_response(event),
                 EventResponse::Network(event) => self.handle_network_event_response(event),
+                EventResponse::Volume(event) => self.handle_volume_event_response(event),
                 EventResponse::DockerUriChange(res) => match res {
                     Ok(()) => {
                         self.clear_all();
@@ -744,6 +767,46 @@ impl App {
                 Ok(info) => {
                     let status = info.networks_deleted.into_iter().fold(
                         "Successfully deleted networks:\n".to_string(),
+                        |mut acc, n| {
+                            acc.push_str(" - ");
+                            acc.push_str(&n);
+                            acc.push('\n');
+                            acc
+                        },
+                    );
+                    self.add_notification(status)
+                }
+                Err(e) => self.add_error(e),
+            },
+        }
+    }
+
+    fn handle_volume_event_response(&mut self, event: VolumeEventResponse) {
+        use VolumeEventResponse::*;
+        match event {
+            Delete(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully deleted volume {}", id)),
+                Err(e) => self.add_error(e),
+            },
+            List(res) => match res {
+                Ok(mut volumes) => {
+                    volumes
+                        .volumes
+                        .sort_by(|a, b| match b.created_at.cmp(&a.created_at) {
+                            std::cmp::Ordering::Equal => a.name.cmp(&b.name),
+                            cmp => cmp,
+                        });
+                    self.volumes.volumes = Some(volumes);
+                }
+                Err(e) => self.add_error(e),
+            },
+            Prune(res) => match res {
+                Ok(info) => {
+                    let status = info.volumes_deleted.into_iter().fold(
+                        format!(
+                            "Space reclaimed: {}\n\nVolumes deleted:\n",
+                            crate::conv_b(info.space_reclaimed as u64)
+                        ),
                         |mut acc, n| {
                             acc.push_str(" - ");
                             acc.push_str(&n);

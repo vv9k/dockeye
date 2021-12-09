@@ -5,7 +5,8 @@ use docker_api::api::{
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
     ImagesPruneInfo, Info, NetworkId, NetworkInfo, NetworkListOpts, NetworksPruneInfo,
-    RegistryAuth, SearchResult, TagOpts, Top, Version,
+    RegistryAuth, SearchResult, TagOpts, Top, Version, VolumeId, VolumeListOpts, VolumePruneOpts,
+    VolumesInfo, VolumesPruneInfo,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -33,8 +34,9 @@ pub enum EventRequest {
     SystemInspect,
     SystemDataUsage,
     SystemEvents,
-    Network(NetworkEvent),
     NotifyGui(GuiEvent),
+    Network(NetworkEvent),
+    Volume(VolumeEvent),
 }
 
 #[derive(Debug)]
@@ -47,6 +49,7 @@ pub enum EventResponse {
     SystemEvents(Vec<Event>),
     NotifyGui(GuiEventResponse),
     Network(NetworkEventResponse),
+    Volume(VolumeEventResponse),
 }
 
 //####################################################################################################
@@ -180,4 +183,19 @@ impl From<GuiEvent> for GuiEventResponse {
             GuiEvent::SetTab(tab) => Self::SetTab(tab),
         }
     }
+}
+
+//####################################################################################################
+
+#[derive(Debug)]
+pub enum VolumeEvent {
+    List(Option<VolumeListOpts>),
+    Delete { id: VolumeId },
+    Prune(Option<VolumePruneOpts>),
+}
+#[derive(Debug)]
+pub enum VolumeEventResponse {
+    List(anyhow::Result<Box<VolumesInfo>>),
+    Delete(anyhow::Result<VolumeId>),
+    Prune(anyhow::Result<VolumesPruneInfo>),
 }

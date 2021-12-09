@@ -6,6 +6,7 @@ mod stats;
 use crate::event::{
     ContainerEvent, ContainerEventResponse, EventRequest, EventResponse, ImageEvent,
     ImageEventResponse, ImageInspectInfo, NetworkEvent, NetworkEventResponse, SystemInspectInfo,
+    VolumeEvent, VolumeEventResponse,
 };
 pub use events::EventsWorker;
 pub use image::{export::ImageExportWorker, import::ImageImportWorker, pull::ImagePullWorker};
@@ -369,6 +370,32 @@ async fn handle_event(
                     .prune(&Default::default())
                     .await
                     .context("pruning networks failed"),
+            ))),
+        },
+        EventRequest::Volume(event) => match event {
+            VolumeEvent::Delete { id } => Some(EventResponse::Volume(VolumeEventResponse::Delete(
+                docker
+                    .volumes()
+                    .get(&id)
+                    .delete()
+                    .await
+                    .map(|_| id)
+                    .context("deleting volume failed"),
+            ))),
+            VolumeEvent::List(opts) => Some(EventResponse::Volume(VolumeEventResponse::List(
+                docker
+                    .volumes()
+                    .list(&opts.unwrap_or_default())
+                    .await
+                    .context("listing volumes failed")
+                    .map(Box::new),
+            ))),
+            VolumeEvent::Prune(opts) => Some(EventResponse::Volume(VolumeEventResponse::Prune(
+                docker
+                    .volumes()
+                    .prune(&opts.unwrap_or_default())
+                    .await
+                    .context("pruning volumes failed"),
             ))),
         },
     }
