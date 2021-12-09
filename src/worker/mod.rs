@@ -388,7 +388,7 @@ async fn handle_event(
                     .list(&opts.unwrap_or_default())
                     .await
                     .context("listing volumes failed")
-                    .map(|v| Box::new(v)),
+                    .map(Box::new),
             ))),
             VolumeEvent::Prune(opts) => Some(EventResponse::Volume(VolumeEventResponse::Prune(
                 docker
