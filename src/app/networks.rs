@@ -7,7 +7,7 @@ use crate::app::{
 use crate::event::{EventRequest, NetworkEvent};
 use crate::format_date;
 
-use docker_api::api::NetworkInfo;
+use docker_api::api::{Ipam, NetworkCreateOpts, NetworkInfo};
 
 use egui::{Grid, Label};
 
@@ -18,6 +18,7 @@ pub fn icon() -> Label {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CentralView {
     Network,
+    Create,
     None,
 }
 
@@ -27,17 +28,52 @@ impl Default for CentralView {
     }
 }
 
+#[derive(Debug)]
+pub struct CreateViewData {
+    pub name: String,
+    pub driver: String,
+    pub internal: bool,
+    pub attachable: bool,
+    pub ingress: bool,
+    pub enable_ipv6: bool,
+    pub opts: Vec<(String, String)>,
+    pub labels: Vec<(String, String)>,
+    pub ipam_driver: String,
+    pub ipam_opts: Vec<(String, String)>,
+    pub ipam_config: Vec<Vec<(String, String)>>,
+}
+
+impl Default for CreateViewData {
+    fn default() -> Self {
+        Self {
+            driver: "bridge".to_string(),
+            name: "".to_string(),
+            internal: false,
+            attachable: true,
+            ingress: false,
+            enable_ipv6: false,
+            opts: vec![],
+            labels: vec![],
+            ipam_driver: "".to_string(),
+            ipam_opts: vec![],
+            ipam_config: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct NetworksTab {
     pub networks: Vec<NetworkInfo>,
     pub current_network: Option<NetworkInfo>,
     pub central_view: CentralView,
+    pub create_view_data: CreateViewData,
 }
 
 impl App {
     pub fn networks_view(&mut self, ui: &mut egui::Ui) {
         match self.networks.central_view {
             CentralView::Network => self.network_details(ui),
+            CentralView::Create => self.network_create(ui),
             CentralView::None => {}
         }
     }
@@ -55,6 +91,11 @@ impl App {
                 &mut self.networks.central_view,
                 CentralView::None,
                 "main view",
+            );
+            ui.selectable_value(
+                &mut self.networks.central_view,
+                CentralView::Create,
+                "create",
             );
         });
         egui::Grid::new("networks_button_grid").show(ui, |ui| {
@@ -294,5 +335,156 @@ impl App {
                 }
             });
         }
+    }
+
+    fn network_create(&mut self, ui: &mut egui::Ui) {
+        ui.allocate_space((f32::INFINITY, 0.).into());
+
+        ui.add(
+            Label::new("Create a new network")
+                .heading()
+                .wrap(true)
+                .strong(),
+        );
+
+        Grid::new("create_network_grid").show(ui, |ui| {
+            ui.scope(|_| {});
+            ui.allocate_space((self.side_panel_size(), 0.).into());
+            ui.end_row();
+            key!(ui, "Name:");
+            ui.text_edit_singleline(&mut self.networks.create_view_data.name);
+            ui.end_row();
+            key!(ui, "Driver:");
+            ui.text_edit_singleline(&mut self.networks.create_view_data.driver);
+            ui.end_row();
+
+            ui::keyval_grid(
+                ui,
+                "Labels:",
+                &mut self.networks.create_view_data.labels,
+                None,
+                None::<&str>,
+            );
+            ui.end_row();
+            ui::keyval_grid(
+                ui,
+                "Options:",
+                &mut self.networks.create_view_data.opts,
+                None,
+                None::<&str>,
+            );
+            ui.end_row();
+            ui.end_row();
+
+            key!(ui, "IPAM Driver:");
+            ui.text_edit_singleline(&mut self.networks.create_view_data.ipam_driver);
+            ui.end_row();
+            ui::keyval_grid(
+                ui,
+                "IPAM Options:",
+                &mut self.networks.create_view_data.ipam_opts,
+                None,
+                None::<&str>,
+            );
+            ui.end_row();
+            key!(ui, "IPAM Config:");
+            if ui.button(icon::ADD).clicked() {
+                self.networks
+                    .create_view_data
+                    .ipam_config
+                    .push(Default::default());
+            }
+            ui.end_row();
+            ui.scope(|_| {});
+            let mut to_delete = None;
+            Grid::new("ipam_configs_grid").show(ui, |ui| {
+                for (i, config) in self
+                    .networks
+                    .create_view_data
+                    .ipam_config
+                    .iter_mut()
+                    .enumerate()
+                {
+                    let name = format!("Config {}", i);
+                    ui.scope(|ui| {
+                        if ui.button(icon::DELETE).clicked() {
+                            to_delete = Some(i);
+                        }
+                        key!(ui, &name);
+                    });
+                    ui.end_row();
+                    ui::keyval_grid(ui, "", config, None, Some(name));
+                    ui.end_row();
+                }
+            });
+            if let Some(idx) = to_delete {
+                self.networks.create_view_data.ipam_config.remove(idx);
+            }
+        });
+
+        ui.checkbox(&mut self.networks.create_view_data.internal, "Internal");
+        ui.checkbox(&mut self.networks.create_view_data.attachable, "Attachable");
+        ui.checkbox(&mut self.networks.create_view_data.ingress, "Ingress");
+        ui.checkbox(
+            &mut self.networks.create_view_data.enable_ipv6,
+            "Enable IPv6",
+        );
+
+        if ui.button("create").clicked() {
+            self._create_network();
+        }
+    }
+
+    fn _create_network(&mut self) {
+        if self.networks.create_view_data.name.is_empty() {
+            self.add_error("cannot create a network without a name");
+            return;
+        }
+        let data = &self.networks.create_view_data;
+        let mut opts = NetworkCreateOpts::builder(&data.name);
+
+        if !data.driver.is_empty() {
+            opts = opts.driver(&data.driver);
+        }
+        if !data.labels.is_empty() {
+            opts = opts.labels(data.labels.clone());
+        }
+        if !data.opts.is_empty() {
+            opts = opts.options(data.opts.clone());
+        }
+        let mut ipam = Ipam {
+            driver: None,
+            config: None,
+            options: None,
+        };
+        let mut set_ipam = false;
+        if !data.ipam_driver.is_empty() {
+            ipam.driver = Some(data.ipam_driver.clone());
+            set_ipam = true;
+        }
+        if !data.ipam_opts.is_empty() {
+            ipam.options = Some(data.ipam_opts.clone().into_iter().collect());
+            set_ipam = true;
+        }
+        if !data.ipam_config.is_empty() {
+            ipam.config = Some(
+                data.ipam_config
+                    .clone()
+                    .into_iter()
+                    .map(|d| d.into_iter().collect())
+                    .collect(),
+            );
+            set_ipam = true;
+        }
+        if set_ipam {
+            opts = opts.ipam(ipam);
+        }
+
+        opts = opts.attachable(data.attachable);
+        opts = opts.internal(data.internal);
+        opts = opts.ingress(data.ingress);
+        opts = opts.enable_ipv6(data.enable_ipv6);
+
+        self.send_event_notify(EventRequest::Network(NetworkEvent::Create(opts.build())));
     }
 }
