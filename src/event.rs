@@ -4,9 +4,9 @@ use docker_api::api::{
     Change, ClearCacheInfo, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerInfo,
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
-    ImagesPruneInfo, Info, NetworkId, NetworkInfo, NetworkListOpts, NetworksPruneInfo,
-    RegistryAuth, SearchResult, TagOpts, Top, Version, VolumeId, VolumeListOpts, VolumePruneOpts,
-    VolumesInfo, VolumesPruneInfo,
+    ImagesPruneInfo, Info, NetworkCreateOpts, NetworkId, NetworkInfo, NetworkListOpts,
+    NetworksPruneInfo, RegistryAuth, SearchResult, TagOpts, Top, Version, VolumeId, VolumeListOpts,
+    VolumePruneOpts, VolumesInfo, VolumesPruneInfo,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -157,12 +157,14 @@ pub enum NetworkEvent {
     List(Option<NetworkListOpts>),
     Delete { id: NetworkId },
     Prune,
+    Create(NetworkCreateOpts),
 }
 #[derive(Debug)]
 pub enum NetworkEventResponse {
     List(Vec<NetworkInfo>),
     Delete(anyhow::Result<NetworkId>),
     Prune(anyhow::Result<NetworksPruneInfo>),
+    Create(anyhow::Result<NetworkId>),
 }
 
 //####################################################################################################

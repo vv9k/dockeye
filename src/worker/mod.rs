@@ -371,6 +371,16 @@ async fn handle_event(
                     .await
                     .context("pruning networks failed"),
             ))),
+            NetworkEvent::Create(opts) => {
+                Some(EventResponse::Network(NetworkEventResponse::Create(
+                    docker
+                        .networks()
+                        .create(&opts)
+                        .await
+                        .map(|c| c.id().to_string())
+                        .context("failed to create a network"),
+                )))
+            }
         },
         EventRequest::Volume(event) => match event {
             VolumeEvent::Delete { id } => Some(EventResponse::Volume(VolumeEventResponse::Delete(
