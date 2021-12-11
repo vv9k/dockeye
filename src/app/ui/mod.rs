@@ -1,3 +1,4 @@
+mod editable_list;
 mod popup;
 
 use egui::{
@@ -5,6 +6,8 @@ use egui::{
     Color32, Label, Stroke, Visuals,
 };
 use epaint::Shadow;
+
+pub use editable_list::{EditableList, EditableListBuilder};
 pub use popup::{popup, ActionPopup, Popup};
 
 pub mod color {
