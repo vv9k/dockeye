@@ -358,34 +358,29 @@ impl App {
             ui.text_edit_singleline(&mut self.networks.create_view_data.driver);
             ui.end_row();
 
-            ui::keyval_grid(
-                ui,
-                "Labels:",
-                &mut self.networks.create_view_data.labels,
-                None,
-                None::<&str>,
-            );
+            let mut labels =
+                ui::EditableList::builder_key_val(&mut self.networks.create_view_data.labels)
+                    .heading("Labels:")
+                    .build();
+            labels.show(ui);
             ui.end_row();
-            ui::keyval_grid(
-                ui,
-                "Options:",
-                &mut self.networks.create_view_data.opts,
-                None,
-                None::<&str>,
-            );
+
+            let mut opts =
+                ui::EditableList::builder_key_val(&mut self.networks.create_view_data.opts)
+                    .heading("Options:")
+                    .build();
+            opts.show(ui);
             ui.end_row();
             ui.end_row();
 
             key!(ui, "IPAM Driver:");
             ui.text_edit_singleline(&mut self.networks.create_view_data.ipam_driver);
             ui.end_row();
-            ui::keyval_grid(
-                ui,
-                "IPAM Options:",
-                &mut self.networks.create_view_data.ipam_opts,
-                None,
-                None::<&str>,
-            );
+            let mut ipam_opts =
+                ui::EditableList::builder_key_val(&mut self.networks.create_view_data.ipam_opts)
+                    .heading("IPAM Options:")
+                    .build();
+            ipam_opts.show(ui);
             ui.end_row();
             key!(ui, "IPAM Config:");
             if ui.button(icon::ADD).clicked() {
@@ -413,7 +408,12 @@ impl App {
                         key!(ui, &name);
                     });
                     ui.end_row();
-                    ui::keyval_grid(ui, "", config, None, Some(name));
+                    let mut cfg = ui::EditableList::builder_key_val(
+                        &mut self.networks.create_view_data.ipam_opts,
+                    )
+                    .heading(&name)
+                    .build();
+                    cfg.show(ui);
                     ui.end_row();
                 }
             });

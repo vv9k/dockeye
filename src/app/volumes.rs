@@ -274,29 +274,26 @@ impl App {
             key!(ui, "Driver:");
             ui.text_edit_singleline(&mut self.volumes.create_view_data.driver);
             ui.end_row();
-            ui::keyval_grid(
-                ui,
-                "Driver options:",
-                &mut self.volumes.create_view_data.opts,
-                None,
-                None::<&str>,
-            );
+
+            let mut driver_opts =
+                ui::EditableList::builder_key_val(&mut self.volumes.create_view_data.driver_opts)
+                    .heading("Driver options:")
+                    .build();
+            driver_opts.show(ui);
             ui.end_row();
-            ui::keyval_grid(
-                ui,
-                "Labels:",
-                &mut self.volumes.create_view_data.labels,
-                None,
-                None::<&str>,
-            );
+
+            let mut labels =
+                ui::EditableList::builder_key_val(&mut self.volumes.create_view_data.labels)
+                    .heading("Labels:")
+                    .build();
+            labels.show(ui);
             ui.end_row();
-            ui::keyval_grid(
-                ui,
-                "Options:",
-                &mut self.volumes.create_view_data.opts,
-                None,
-                None::<&str>,
-            );
+
+            let mut opts =
+                ui::EditableList::builder_key_val(&mut self.volumes.create_view_data.opts)
+                    .heading("Options:")
+                    .build();
+            opts.show(ui);
             ui.end_row();
         });
 
