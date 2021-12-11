@@ -52,9 +52,43 @@ pub fn convert_naive_date(secs: i64) -> DateTime<Utc> {
     DateTime::from_utc(naive, Utc)
 }
 
-fn save_to_clipboard(text: String) -> Result<(), Box<dyn std::error::Error>> {
+fn save_to_clipboard(text: String) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut ctx: clipboard::ClipboardContext = ClipboardProvider::new()?;
     ctx.set_contents(text)
+}
+
+/// Converts a memory string like `1G`, `100M` etc. into bytes integer.
+pub fn convert_memory(s: &str) -> Result<u64> {
+    let mut found_non_dig = None;
+
+    for (i, c) in s.chars().enumerate() {
+        if !c.is_numeric() {
+            found_non_dig = Some(i);
+            break;
+        }
+    }
+
+    if let Some(i) = found_non_dig {
+        let num: u64 = s[..i].parse().context("parsing memory number failed")?;
+        let rest = &s[i..];
+        match &rest.to_lowercase()[..] {
+            "b" => Ok(num),
+            "k" => Ok(num.saturating_mul(1000)),
+            "m" => Ok(num.saturating_mul(1000).saturating_mul(1000)),
+            "g" => Ok(num
+                .saturating_mul(1000)
+                .saturating_mul(1000)
+                .saturating_mul(1000)),
+            "t" => Ok(num
+                .saturating_mul(1000)
+                .saturating_mul(1000)
+                .saturating_mul(1000)
+                .saturating_mul(1000)),
+            _ => Err(Error::msg(format!("invalid unit: {}", rest))),
+        }
+    } else {
+        s.parse().context("parsing memory number failed")
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
