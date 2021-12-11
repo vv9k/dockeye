@@ -407,6 +407,14 @@ async fn handle_event(
                     .await
                     .context("pruning volumes failed"),
             ))),
+            VolumeEvent::Create(opts) => Some(EventResponse::Volume(VolumeEventResponse::Create(
+                docker
+                    .volumes()
+                    .create(&opts)
+                    .await
+                    .map(|c| c.name().to_string())
+                    .context("failed to create a volume"),
+            ))),
         },
     }
 }

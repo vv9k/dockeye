@@ -822,6 +822,10 @@ impl App {
                 }
                 Err(e) => self.add_error(e),
             },
+            Create(res) => match res {
+                Ok(name) => self.add_notification(format!("successfully created volume {}", name)),
+                Err(e) => self.add_error(e),
+            },
         }
     }
 
