@@ -151,7 +151,7 @@ impl Default for ContainerView {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct ContainerCreateData {
     pub image: String,
     pub command: String,
@@ -163,6 +163,52 @@ pub struct ContainerCreateData {
     pub stderr: bool,
     pub stdout: bool,
     pub env: Vec<(String, String)>,
+
+    pub userns_mode: String,
+    pub network_mode: String,
+    pub log_driver: String,
+    pub privileged: bool,
+    pub autoremove: bool,
+    pub cpus: f64,
+    pub cpu_shares: i32,
+    pub memory: u64,
+    pub memory_swap: i64,
+    pub labels: Vec<(String, String)>,
+    pub sec_ops: Vec<String>,
+    pub volumes: Vec<String>,
+    pub links: Vec<String>,
+    pub capabilities: Vec<String>,
+}
+
+impl Default for ContainerCreateData {
+    fn default() -> Self {
+        Self {
+            image: "".to_string(),
+            command: "".to_string(),
+            name: "".to_string(),
+            working_dir: "".to_string(),
+            user: "".to_string(),
+            tty: false,
+            stdin: false,
+            stderr: false,
+            stdout: false,
+            privileged: false,
+            autoremove: false,
+            cpus: 0.,
+            cpu_shares: -1,
+            memory: 0,
+            memory_swap: -1,
+            env: vec![],
+            userns_mode: "".to_string(),
+            network_mode: "".to_string(),
+            log_driver: "".to_string(),
+            labels: vec![],
+            sec_ops: vec![],
+            volumes: vec![],
+            links: vec![],
+            capabilities: vec![],
+        }
+    }
 }
 
 impl ContainerCreateData {
@@ -185,10 +231,27 @@ impl ContainerCreateData {
         if !self.user.is_empty() {
             opts = opts.user(&self.user);
         }
+        if !self.userns_mode.is_empty() {
+            opts = opts.userns_mode(&self.userns_mode);
+        }
+        if !self.network_mode.is_empty() {
+            opts = opts.network_mode(&self.network_mode);
+        }
+        if !self.log_driver.is_empty() {
+            opts = opts.log_driver(&self.log_driver);
+        }
         opts = opts.tty(self.tty);
         opts = opts.attach_stdin(self.stdin);
         opts = opts.attach_stderr(self.stderr);
         opts = opts.attach_stdout(self.stdout);
+        opts = opts.privileged(self.privileged);
+        opts = opts.auto_remove(self.autoremove);
+        opts = opts.cpus(self.cpus);
+        if self.cpu_shares > 0 {
+            opts = opts.cpu_shares(self.cpu_shares as u32);
+        }
+        opts = opts.memory(self.memory);
+        opts = opts.memory_swap(self.memory_swap);
 
         if !self.env.is_empty() {
             let env = self
@@ -197,6 +260,22 @@ impl ContainerCreateData {
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>();
             opts = opts.env(env);
+        }
+
+        if !self.labels.is_empty() {
+            opts = opts.labels(self.labels.clone());
+        }
+        if !self.sec_ops.is_empty() {
+            opts = opts.security_options(self.sec_ops.clone());
+        }
+        if !self.volumes.is_empty() {
+            opts = opts.volumes(self.volumes.clone());
+        }
+        if !self.links.is_empty() {
+            opts = opts.links(self.links.clone());
+        }
+        if !self.capabilities.is_empty() {
+            opts = opts.capabilities(self.capabilities.clone());
         }
 
         opts.build()
@@ -480,6 +559,15 @@ impl App {
             key!(ui, "User:");
             ui.text_edit_singleline(&mut self.containers.create_data.user);
             ui.end_row();
+            key!(ui, "User namespace mode:");
+            ui.text_edit_singleline(&mut self.containers.create_data.userns_mode);
+            ui.end_row();
+            key!(ui, "Network mode:");
+            ui.text_edit_singleline(&mut self.containers.create_data.network_mode);
+            ui.end_row();
+            key!(ui, "Logging driver:");
+            ui.text_edit_singleline(&mut self.containers.create_data.log_driver);
+            ui.end_row();
             ui.checkbox(&mut self.containers.create_data.tty, "TTY");
             ui.end_row();
             ui.checkbox(&mut self.containers.create_data.stdin, "Standard input");
@@ -488,16 +576,59 @@ impl App {
             ui.end_row();
             ui.checkbox(&mut self.containers.create_data.stderr, "Standard error");
             ui.end_row();
+            ui.checkbox(&mut self.containers.create_data.privileged, "Privileged");
+            ui.end_row();
+            ui.checkbox(&mut self.containers.create_data.autoremove, "Auto remove");
+            ui.end_row();
 
             ui.end_row();
 
-            ui::keyval_grid(
-                ui,
-                "Environment:",
-                &mut self.containers.create_data.env,
-                None,
-                Some("container_create_env_grid"),
-            );
+            let mut env = ui::EditableList::builder_key_val(&mut self.containers.create_data.env)
+                .heading("Environment:")
+                .add_hover_text(
+                "Add a key value pair"
+                )
+                .key_heading("Key:")
+                .val_heading("Val:")
+                .build()
+            ;
+            env.show(ui);
+            ui.end_row();
+
+            let mut sec_ops = ui::EditableList::builder_key(&mut self.containers.create_data.sec_ops)
+                .heading("Security options:")
+                .add_hover_text(
+                "Add a security option"
+                ).build()
+            ;
+            sec_ops.show(ui);
+            ui.end_row();
+
+            let mut capabilities = ui::EditableList::builder_key(&mut self.containers.create_data.capabilities)
+                .heading("Capabilities:")
+                .add_hover_text(
+                "Add a capability"
+                ).build()
+            ;
+            capabilities.show(ui);
+            ui.end_row();
+
+            let mut volumes = ui::EditableList::builder_key(&mut self.containers.create_data.volumes)
+                .heading("Volume mounts:")
+                .add_hover_text(
+                "Add a volume mount from host in the form of `/some/host/path:/some/container/path`)"
+                ).build()
+            ;
+            volumes.show(ui);
+            ui.end_row();
+
+            let mut links = ui::EditableList::builder_key(&mut self.containers.create_data.links)
+                .heading("Links:")
+                .add_hover_text(
+                "Add a link"
+                ).build()
+            ;
+            links.show(ui);
             ui.end_row();
 
             ui.scope(|ui| {
