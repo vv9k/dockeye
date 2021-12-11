@@ -1,12 +1,15 @@
 use crate::app::ui::{icon, key};
 
 #[derive(Debug)]
+/// Represents the types of data that can be displayed by [`EditableList`](EditableList).
 enum ListData<'a> {
     KeyVal(&'a mut Vec<(String, String)>),
     Key(&'a mut Vec<String>),
 }
 
 #[derive(Debug)]
+/// UI widget that can display editable lists of string items. There is a button to add new values
+/// as well as a button to remove each entry.
 pub struct EditableList<'a> {
     heading: Option<&'a str>,
     data: ListData<'a>,
@@ -70,13 +73,18 @@ impl<'a> EditableList<'a> {
         let response = grid.show(ui, |ui| match &mut self.data {
             ListData::Key(data) => {
                 for (i, key) in data.iter_mut().enumerate() {
+                    if let Some(key_heading) = self.key_heading {
+                        key!(ui, key_heading);
+                    }
                     ui.add(egui::TextEdit::singleline(key));
                     if ui.button(icon::DELETE).clicked() {
                         to_delete = Some(i);
                     }
                     ui.end_row();
                 }
-                ui.scope(|_| {});
+                if self.key_heading.is_some() {
+                    ui.scope(|_| {});
+                }
                 ui.allocate_space(desired_size);
                 ui.end_row();
             }
@@ -95,9 +103,13 @@ impl<'a> EditableList<'a> {
                     }
                     ui.end_row();
                 }
-                ui.scope(|_| {});
+                if self.key_heading.is_some() {
+                    ui.scope(|_| {});
+                }
                 ui.allocate_space(desired_size);
-                ui.scope(|_| {});
+                if self.val_heading.is_some() {
+                    ui.scope(|_| {});
+                }
                 ui.allocate_space(desired_size);
                 ui.end_row();
             }
