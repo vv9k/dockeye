@@ -778,6 +778,10 @@ impl App {
                 }
                 Err(e) => self.add_error(e),
             },
+            Create(res) => match res {
+                Ok(id) => self.add_notification(format!("successfully created network {}", id)),
+                Err(e) => self.add_error(e),
+            },
         }
     }
 
