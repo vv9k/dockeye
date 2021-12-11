@@ -2,11 +2,12 @@ mod app;
 mod event;
 mod worker;
 pub use app::{settings, App};
-
-use chrono::{DateTime, Utc};
-use clipboard::ClipboardProvider;
 pub use event::{EventRequest, EventResponse, ImageInspectInfo};
 pub use worker::DockerWorker;
+
+use anyhow::{Context, Error, Result};
+use chrono::{DateTime, Utc};
+use clipboard::ClipboardProvider;
 
 pub const APP_NAME: &str = "dockeye";
 

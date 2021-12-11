@@ -7,6 +7,7 @@ use crate::app::{
 use crate::event::{ContainerEvent, EventRequest, GuiEvent};
 use crate::worker::RunningContainerStats;
 
+use anyhow::{Context, Result};
 use docker_api::api::{
     Change, ChangeKind, ContainerCreateOpts, ContainerDetails, ContainerId, ContainerIdRef,
     ContainerInfo, ContainerStatus, Top,
@@ -158,21 +159,20 @@ pub struct ContainerCreateData {
     pub name: String,
     pub working_dir: String,
     pub user: String,
+    pub userns_mode: String,
+    pub network_mode: String,
+    pub log_driver: String,
     pub tty: bool,
     pub stdin: bool,
     pub stderr: bool,
     pub stdout: bool,
-    pub env: Vec<(String, String)>,
-
-    pub userns_mode: String,
-    pub network_mode: String,
-    pub log_driver: String,
     pub privileged: bool,
     pub autoremove: bool,
-    pub cpus: f64,
-    pub cpu_shares: i32,
-    pub memory: u64,
-    pub memory_swap: i64,
+    pub cpus: f32,
+    pub cpu_shares: f32,
+    pub memory: String,
+    pub memory_swap: String,
+    pub env: Vec<(String, String)>,
     pub labels: Vec<(String, String)>,
     pub sec_ops: Vec<String>,
     pub volumes: Vec<String>,
@@ -188,6 +188,9 @@ impl Default for ContainerCreateData {
             name: "".to_string(),
             working_dir: "".to_string(),
             user: "".to_string(),
+            userns_mode: "".to_string(),
+            network_mode: "".to_string(),
+            log_driver: "".to_string(),
             tty: false,
             stdin: false,
             stderr: false,
@@ -195,13 +198,10 @@ impl Default for ContainerCreateData {
             privileged: false,
             autoremove: false,
             cpus: 0.,
-            cpu_shares: -1,
-            memory: 0,
-            memory_swap: -1,
+            cpu_shares: -1.,
+            memory: "".to_string(),
+            memory_swap: "".to_string(),
             env: vec![],
-            userns_mode: "".to_string(),
-            network_mode: "".to_string(),
-            log_driver: "".to_string(),
             labels: vec![],
             sec_ops: vec![],
             volumes: vec![],
@@ -216,7 +216,7 @@ impl ContainerCreateData {
         *self = ContainerCreateData::default();
     }
 
-    pub fn as_opts(&self) -> ContainerCreateOpts {
+    pub fn as_opts(&self) -> Result<ContainerCreateOpts> {
         let mut opts = ContainerCreateOpts::builder(&self.image);
         if !self.command.is_empty() {
             // #TODO: this should be wiser about arguments
@@ -246,12 +246,27 @@ impl ContainerCreateData {
         opts = opts.attach_stdout(self.stdout);
         opts = opts.privileged(self.privileged);
         opts = opts.auto_remove(self.autoremove);
-        opts = opts.cpus(self.cpus);
-        if self.cpu_shares > 0 {
+        opts = opts.cpus(self.cpus as f64);
+        if self.cpu_shares > 0. {
             opts = opts.cpu_shares(self.cpu_shares as u32);
         }
-        opts = opts.memory(self.memory);
-        opts = opts.memory_swap(self.memory_swap);
+        if !self.memory.is_empty() {
+            match crate::convert_memory(&self.memory) {
+                Ok(memory) => {
+                    opts = opts.memory(memory);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        if !self.memory_swap.is_empty() {
+            match crate::convert_memory(&self.memory_swap) {
+                Ok(swap) => match swap.try_into().context("converting memory swap failed") {
+                    Ok(swap) => opts = opts.memory_swap(swap),
+                    Err(e) => return Err(e),
+                },
+                Err(e) => return Err(e),
+            }
+        }
 
         if !self.env.is_empty() {
             let env = self
@@ -278,7 +293,7 @@ impl ContainerCreateData {
             opts = opts.capabilities(self.capabilities.clone());
         }
 
-        opts.build()
+        Ok(opts.build())
     }
 }
 
@@ -635,14 +650,37 @@ impl App {
             links.show(ui);
             ui.end_row();
 
+            key!(ui, "CPUs:");
+            ui.add(egui::DragValue::new(&mut self.containers.create_data.cpus).speed(1.));
+            ui.end_row();
+            key!(ui, "CPU shares:");
+            ui.add(egui::DragValue::new(&mut self.containers.create_data.cpu_shares).speed(1.));
+            ui.end_row();
+
+            if self.containers.create_data.cpus < 0. {
+                self.containers.create_data.cpus = 0.;
+            }
+            key!(ui, "Memory:");
+            ui.text_edit_singleline(&mut self.containers.create_data.memory).on_hover_text("examples between ``: `1G`, `100m`, `1000000`");
+            ui.end_row();
+            key!(ui, "Memory swap:");
+            ui.text_edit_singleline(&mut self.containers.create_data.memory_swap);
+            ui.end_row();
+
             ui.scope(|ui| {
                 if ui.button("create").clicked() {
                     if self.containers.create_data.image.is_empty() {
                         self.add_error("Image name is required to create a container");
                     } else {
+                            match self.containers.create_data.as_opts() {
+                                Ok(opts) => {
+
                         self.send_event_notify(EventRequest::Container(ContainerEvent::Create(
-                            self.containers.create_data.as_opts(),
+                                    opts
                         )));
+                                }
+                                Err(e) => self.add_error(e)
+                            }
                     }
                 }
                 ui.add_space(5.);
