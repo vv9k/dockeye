@@ -5,8 +5,8 @@ use docker_api::api::{
     ContainerListOpts, ContainersPruneInfo, DataUsage, DeleteStatus, DistributionInspectInfo,
     Event, History, ImageBuildChunk, ImageDetails, ImageId, ImageInfo, ImageListOpts,
     ImagesPruneInfo, Info, NetworkCreateOpts, NetworkId, NetworkInfo, NetworkListOpts,
-    NetworksPruneInfo, RegistryAuth, SearchResult, TagOpts, Top, Version, VolumeId, VolumeListOpts,
-    VolumePruneOpts, VolumesInfo, VolumesPruneInfo,
+    NetworksPruneInfo, RegistryAuth, SearchResult, TagOpts, Top, Version, VolumeCreateOpts,
+    VolumeId, VolumeListOpts, VolumePruneOpts, VolumesInfo, VolumesPruneInfo,
 };
 use docker_api::Error;
 use std::path::PathBuf;
@@ -194,10 +194,12 @@ pub enum VolumeEvent {
     List(Option<VolumeListOpts>),
     Delete { id: VolumeId },
     Prune(Option<VolumePruneOpts>),
+    Create(VolumeCreateOpts),
 }
 #[derive(Debug)]
 pub enum VolumeEventResponse {
     List(anyhow::Result<Box<VolumesInfo>>),
     Delete(anyhow::Result<VolumeId>),
     Prune(anyhow::Result<VolumesPruneInfo>),
+    Create(anyhow::Result<VolumeId>),
 }

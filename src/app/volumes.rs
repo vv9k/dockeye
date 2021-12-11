@@ -7,7 +7,7 @@ use crate::app::{
 use crate::event::{EventRequest, VolumeEvent};
 use crate::format_date;
 
-use docker_api::api::{VolumeInfo, VolumesInfo};
+use docker_api::api::{VolumeCreateOpts, VolumeInfo, VolumesInfo};
 
 use egui::{Grid, Label};
 
@@ -18,6 +18,7 @@ pub fn icon() -> Label {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CentralView {
     Volume,
+    Create,
     None,
 }
 
@@ -27,17 +28,40 @@ impl Default for CentralView {
     }
 }
 
+#[derive(Debug)]
+pub struct CreateViewData {
+    pub name: String,
+    pub driver: String,
+    pub driver_opts: Vec<(String, String)>,
+    pub opts: Vec<(String, String)>,
+    pub labels: Vec<(String, String)>,
+}
+
+impl Default for CreateViewData {
+    fn default() -> Self {
+        Self {
+            name: "".to_string(),
+            driver: "local".to_string(),
+            driver_opts: vec![],
+            opts: vec![],
+            labels: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct VolumesTab {
     pub volumes: Option<Box<VolumesInfo>>,
     pub current_volume: Option<VolumeInfo>,
     pub central_view: CentralView,
+    pub create_view_data: CreateViewData,
 }
 
 impl App {
     pub fn volumes_view(&mut self, ui: &mut egui::Ui) {
         match self.volumes.central_view {
             CentralView::Volume => self.volume_details(ui),
+            CentralView::Create => self.volume_create(ui),
             CentralView::None => {}
         }
     }
@@ -55,6 +79,11 @@ impl App {
                 &mut self.volumes.central_view,
                 CentralView::None,
                 "main view",
+            );
+            ui.selectable_value(
+                &mut self.volumes.central_view,
+                CentralView::Create,
+                "create",
             );
         });
         egui::Grid::new("volumes_button_grid").show(ui, |ui| {
@@ -223,5 +252,74 @@ impl App {
                 }
             });
         }
+    }
+
+    fn volume_create(&mut self, ui: &mut egui::Ui) {
+        ui.allocate_space((f32::INFINITY, 0.).into());
+
+        ui.add(
+            Label::new("Create a new volume")
+                .heading()
+                .wrap(true)
+                .strong(),
+        );
+
+        Grid::new("create_volume_grid").show(ui, |ui| {
+            ui.scope(|_| {});
+            ui.allocate_space((self.side_panel_size(), 0.).into());
+            ui.end_row();
+            key!(ui, "Name:");
+            ui.text_edit_singleline(&mut self.volumes.create_view_data.name);
+            ui.end_row();
+            key!(ui, "Driver:");
+            ui.text_edit_singleline(&mut self.volumes.create_view_data.driver);
+            ui.end_row();
+            ui::keyval_grid(
+                ui,
+                "Driver options:",
+                &mut self.volumes.create_view_data.opts,
+                None,
+                None::<&str>,
+            );
+            ui.end_row();
+            ui::keyval_grid(
+                ui,
+                "Labels:",
+                &mut self.volumes.create_view_data.labels,
+                None,
+                None::<&str>,
+            );
+            ui.end_row();
+            ui::keyval_grid(
+                ui,
+                "Options:",
+                &mut self.volumes.create_view_data.opts,
+                None,
+                None::<&str>,
+            );
+            ui.end_row();
+        });
+
+        if ui.button("create").clicked() {
+            self._create_volume();
+        }
+    }
+
+    fn _create_volume(&mut self) {
+        let data = &self.volumes.create_view_data;
+        let mut opts = VolumeCreateOpts::builder();
+        if !data.name.is_empty() {
+            opts = opts.name(data.name.clone());
+        }
+        if !data.driver.is_empty() {
+            opts = opts.driver(data.driver.clone());
+        }
+        if !data.labels.is_empty() {
+            opts = opts.labels(data.labels.clone());
+        }
+        if !data.name.is_empty() {
+            opts = opts.driver_opts(data.driver_opts.clone());
+        }
+        self.send_event_notify(EventRequest::Volume(VolumeEvent::Create(opts.build())));
     }
 }
