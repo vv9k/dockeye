@@ -491,24 +491,13 @@ impl App {
 
             ui.end_row();
 
-            key!(ui, "Environment:");
-            if ui.button(icon::ADD).clicked() {
-                self.containers
-                    .create_data
-                    .env
-                    .push((String::new(), String::new()));
-            }
-            ui.end_row();
-            ui.scope(|_| {});
-            Grid::new("create_env").show(ui, |ui| {
-                for (key, val) in &mut self.containers.create_data.env {
-                    key!(ui, "Key:");
-                    ui.add(egui::TextEdit::singleline(key).desired_width(f32::INFINITY));
-                    key!(ui, "Value:");
-                    ui.add(egui::TextEdit::singleline(val).desired_width(f32::INFINITY));
-                    ui.end_row();
-                }
-            });
+            ui::keyval_grid(
+                ui,
+                "Environment:",
+                &mut self.containers.create_data.env,
+                None,
+                Some("container_create_env_grid"),
+            );
             ui.end_row();
 
             ui.scope(|ui| {

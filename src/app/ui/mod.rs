@@ -201,3 +201,50 @@ pub fn bool_icon(val: bool) -> Label {
         Label::new(icon::SUB).strong().text_color(Color32::RED)
     }
 }
+
+pub fn keyval_grid(
+    ui: &mut egui::Ui,
+    heading: &str,
+    data: &mut Vec<(String, String)>,
+    desired_width: Option<f32>,
+    id_source: Option<impl std::hash::Hash>,
+) -> egui::Response {
+    if !heading.is_empty() {
+        key!(ui, heading);
+    }
+    if ui.button(icon::ADD).clicked() {
+        data.push((String::new(), String::new()));
+    }
+    ui.end_row();
+    ui.scope(|_| {});
+    let mut to_delete = None;
+    let desired_width = desired_width.unwrap_or(200.);
+    let desired_size = egui::vec2(desired_width, 0.);
+    let grid = if let Some(id) = id_source {
+        egui::Grid::new(id)
+    } else {
+        egui::Grid::new(heading)
+    };
+
+    let response = grid.show(ui, |ui| {
+        for (i, (key, val)) in data.iter_mut().enumerate() {
+            key!(ui, "Key:");
+            ui.add(egui::TextEdit::singleline(key));
+            key!(ui, "Value:");
+            ui.add(egui::TextEdit::singleline(val));
+            if ui.button(icon::DELETE).clicked() {
+                to_delete = Some(i);
+            }
+            ui.end_row();
+        }
+        ui.scope(|_| {});
+        ui.allocate_space(desired_size);
+        ui.scope(|_| {});
+        ui.allocate_space(desired_size);
+        ui.end_row();
+    });
+    if let Some(idx) = to_delete {
+        data.remove(idx);
+    }
+    response.response
+}
