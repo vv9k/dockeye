@@ -4,6 +4,7 @@
 - Use RFC3339 for all dates
 - Add networks tab [#63](https://github.com/vv9k/dockeye/pull/63)
 - Add volumes tab [#67](https://github.com/vv9k/dockeye/pull/67)
+- Add a network create tab [#68](https://github.com/vv9k/dockeye/pull/68)
 
 # 0.2.0
 - Explicitly sort sidepanel images/containers by newest
