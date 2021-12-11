@@ -105,7 +105,7 @@ impl App {
                 .spacing((0., 0.))
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
-                    let mut popups = vec![];
+                    let mut popup = None;
                     let color = ui.visuals().widgets.open.bg_fill;
                     if let Some(volumes) = &self.volumes.volumes {
                         for volume in &volumes.volumes {
@@ -174,7 +174,7 @@ impl App {
                                                         .on_hover_text("delete the volume")
                                                         .clicked()
                                                     {
-                                                        popups.push(ui::ActionPopup::new(
+                                                        popup = Some(ui::ActionPopup::new(
                                                             EventRequest::Volume(
                                                                 VolumeEvent::Delete {
                                                                     id: volume.name.clone(),
@@ -198,7 +198,9 @@ impl App {
                             ui.end_row();
                         }
                     }
-                    self.popups.extend(popups);
+                    if let Some(popup) = popup {
+                        self.popups.push_back(popup);
+                    }
                 });
         });
         self.volumes.central_view = view;

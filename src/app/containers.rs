@@ -40,14 +40,14 @@ pub fn is_paused(container: &ContainerDetails) -> bool {
     matches!(container.state.status, ContainerStatus::Paused)
 }
 macro_rules! btn {
-    ($self:ident, $ui:ident, $icon:expr, $hover:literal, $event:expr, $errors: ident) => {
+    ($self:ident, $ui:ident, $icon:expr, $hover:literal, $event:expr, $errors: expr) => {
         if $ui.button($icon).on_hover_text($hover).clicked() {
             if let Err(e) = $self.send_event($event) {
-                $errors.push(Box::new(e));
+                $errors = Some(Box::new(e));
             }
         }
     };
-    (stop => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+    (stop => $self:ident, $ui:ident, $container:ident, $errors:expr) => {
         btn!(
             $self,
             $ui,
@@ -59,7 +59,7 @@ macro_rules! btn {
             $errors
         );
     };
-    (start => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+    (start => $self:ident, $ui:ident, $container:ident, $errors:expr) => {
         btn!(
             $self,
             $ui,
@@ -71,7 +71,7 @@ macro_rules! btn {
             $errors
         );
     };
-    (pause => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+    (pause => $self:ident, $ui:ident, $container:ident, $errors:expr) => {
         btn!(
             $self,
             $ui,
@@ -83,7 +83,7 @@ macro_rules! btn {
             $errors
         );
     };
-    (unpause => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+    (unpause => $self:ident, $ui:ident, $container:ident, $errors:expr) => {
         btn!(
             $self,
             $ui,
@@ -95,7 +95,7 @@ macro_rules! btn {
             $errors
         );
     };
-    (info => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+    (info => $self:ident, $ui:ident, $container:ident, $errors:expr) => {
         btn!(
             $self,
             $ui,
@@ -107,7 +107,7 @@ macro_rules! btn {
             $errors
         );
     };
-    (restart => $self:ident, $ui:ident, $container:ident, $errors:ident) => {
+    (restart => $self:ident, $ui:ident, $container:ident, $errors:expr) => {
         btn!(
             $self,
             $ui,
@@ -409,8 +409,8 @@ impl App {
                 .spacing((0., 0.))
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
-                    let mut errors = vec![];
-                    let mut popups = vec![];
+                    let mut error = None;
+                    let mut popup = None;
                     let mut central_view = self.containers.central_view;
                     for container in &self.containers.containers {
                         let color = color_for_state(&container.state);
@@ -486,7 +486,7 @@ impl App {
                                                             },
                                                         ))
                                                     {
-                                                        errors.push(Box::new(e));
+                                                        error = Some(Box::new(e));
                                                     };
                                                 }
                                                 if ui
@@ -494,7 +494,7 @@ impl App {
                                                     .on_hover_text("Delete this container")
                                                     .clicked()
                                                 {
-                                                    popups.push(ui::ActionPopup::new(
+                                                    popup = Some(ui::ActionPopup::new(
                                                         EventRequest::Container(
                                                             ContainerEvent::Delete {
                                                                 id: container.id.clone(),
@@ -509,17 +509,17 @@ impl App {
                                                 }
                                                 match container.state {
                                                     ContainerStatus::Running => {
-                                                        btn!(stop => self, ui, container, errors);
-                                                        btn!(pause => self, ui, container, errors);
-                                                        btn!(restart => self, ui, container, errors);
+                                                        btn!(stop => self, ui, container, error);
+                                                        btn!(pause => self, ui, container, error);
+                                                        btn!(restart => self, ui, container, error);
                                                     }
                                                     ContainerStatus::Paused => {
-                                                    btn!(stop => self, ui, container, errors);
-                                                    btn!(unpause => self, ui, container, errors);
-                                                    btn!(restart => self, ui, container, errors);
+                                                        btn!(stop => self, ui, container, error);
+                                                        btn!(unpause => self, ui, container, error);
+                                                        btn!(restart => self, ui, container, error);
                                                     }
                                                     _ => {
-                                                    btn!(start => self, ui, container, errors);
+                                                        btn!(start => self, ui, container, error);
                                                     }
                                                 }
                                             });
@@ -532,9 +532,13 @@ impl App {
                         });
                         ui.end_row();
                     }
-                    errors.into_iter().for_each(|error| self.add_error(error));
+                    if let Some(error) = error {
+                        self.add_error(error);
+                    }
+                    if let Some(popup) = popup {
+                        self.popups.push_back(popup);
+                    }
                     self.containers.central_view = central_view;
-                    self.popups.extend(popups);
                 });
         });
     }
@@ -650,7 +654,7 @@ impl App {
     }
 
     fn container_details(&mut self, ui: &mut egui::Ui) {
-        let mut errors = vec![];
+        let mut error = None;
         let mut rename_id = None;
         if let Some(container) = &self.containers.current_container {
             let color = if is_running(container) {
@@ -668,7 +672,7 @@ impl App {
                         .wrap(true)
                         .strong(),
                 );
-                self.container_buttons(ui, container, &mut errors);
+                self.container_buttons(ui, container, &mut error);
                 if ui.button("rename").clicked() {
                     rename_id = Some(container.id.clone());
                 }
@@ -723,32 +727,36 @@ impl App {
             self.containers.rename_window.toggle();
             self.containers.rename_window.id = id;
         }
-        errors.into_iter().for_each(|error| self.add_error(error));
+        if let Some(error) = error {
+            self.add_error(error);
+        }
     }
 
     fn container_buttons(
         &self,
         ui: &mut egui::Ui,
         container: &ContainerDetails,
-        errors: &mut Vec<Box<dyn std::fmt::Debug>>,
+        error: &mut Option<Box<anyhow::Error>>,
     ) {
+        let mut _error = None;
         if is_running(container) {
             ui.horizontal(|ui| {
-                btn!(stop => self, ui, container, errors);
-                btn!(pause => self, ui, container, errors);
-                btn!(restart => self, ui, container, errors);
+                btn!(stop => self, ui, container, _error);
+                btn!(pause => self, ui, container, _error);
+                btn!(restart => self, ui, container, _error);
             });
         } else if is_paused(container) {
             ui.horizontal(|ui| {
-                btn!(stop => self, ui, container, errors);
-                btn!(unpause => self, ui, container, errors);
-                btn!(restart => self, ui, container, errors);
+                btn!(stop => self, ui, container, _error);
+                btn!(unpause => self, ui, container, _error);
+                btn!(restart => self, ui, container, _error);
             });
         } else {
             ui.horizontal(|ui| {
-                btn!(start => self, ui, container, errors);
+                btn!(start => self, ui, container, _error);
             });
         }
+        std::mem::swap(error, &mut _error);
     }
 
     fn container_info(&self, ui: &mut egui::Ui, container: &ContainerDetails) {

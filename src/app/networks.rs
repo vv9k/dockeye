@@ -117,8 +117,7 @@ impl App {
                 .spacing((0., 0.))
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
-                    //let mut errors = vec![];
-                    let mut popups = vec![];
+                    let mut popup = None;
                     let color = ui.visuals().widgets.open.bg_fill;
                     for network in &self.networks.networks {
                         let selected = self
@@ -189,7 +188,7 @@ impl App {
                                                 .on_hover_text("delete the network")
                                                 .clicked()
                                             {
-                                                popups.push(ui::ActionPopup::new(
+                                                popup = Some(ui::ActionPopup::new(
                                                     EventRequest::Network(NetworkEvent::Delete {
                                                         id: network.id.clone(),
                                                     }),
@@ -210,8 +209,9 @@ impl App {
                         });
                         ui.end_row();
                     }
-                    //errors.iter().for_each(|err| self.add_notification(err));
-                    self.popups.extend(popups);
+                    if let Some(popup) = popup {
+                        self.popups.push_back(popup);
+                    }
                 });
         });
         self.networks.central_view = view;
@@ -408,11 +408,9 @@ impl App {
                         key!(ui, &name);
                     });
                     ui.end_row();
-                    let mut cfg = ui::EditableList::builder_key_val(
-                        &mut self.networks.create_view_data.ipam_opts,
-                    )
-                    .heading(&name)
-                    .build();
+                    let mut cfg = ui::EditableList::builder_key_val(config)
+                        .heading(&name)
+                        .build();
                     cfg.show(ui);
                     ui.end_row();
                 }

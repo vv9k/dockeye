@@ -203,8 +203,8 @@ impl App {
                 .spacing((0., 0.))
                 .max_col_width(self.side_panel_size())
                 .show(ui, |ui| {
-                    let mut errors = vec![];
-                    let mut popups = vec![];
+                    let mut error = None;
+                    let mut popup = None;
                     let color = ui.visuals().widgets.open.bg_fill;
                     for image in &self.images.images {
                         let selected = self
@@ -277,7 +277,7 @@ impl App {
                                                         id: image.id.clone(),
                                                     }),
                                                 ) {
-                                                    errors.push(e);
+                                                    error = Some(e);
                                                 };
                                                 view = CentralView::Image;
                                             }
@@ -286,7 +286,7 @@ impl App {
                                                 .on_hover_text("delete the image")
                                                 .clicked()
                                             {
-                                                popups.push(ui::ActionPopup::new(
+                                                popup = Some(ui::ActionPopup::new(
                                                     EventRequest::Image(ImageEvent::Delete {
                                                         id: image.id.clone(),
                                                     }),
@@ -318,14 +318,16 @@ impl App {
                                                                 output_path,
                                                             }),
                                                         ) {
-                                                            errors.push(e);
+                                                            error = Some(e);
                                                         };
                                                     }
                                                     Ok(None) => {}
-                                                    Err(e) => errors.push(Error::msg(format!(
-                                                        "failed to spawn a file dialog - {}",
-                                                        e,
-                                                    ))),
+                                                    Err(e) => {
+                                                        error = Some(Error::msg(format!(
+                                                            "failed to spawn a file dialog - {}",
+                                                            e,
+                                                        )))
+                                                    }
                                                 }
                                             }
                                         });
@@ -338,8 +340,12 @@ impl App {
                         });
                         ui.end_row();
                     }
-                    errors.iter().for_each(|err| self.add_notification(err));
-                    self.popups.extend(popups);
+                    if let Some(err) = error {
+                        self.add_notification(err);
+                    };
+                    if let Some(popup) = popup {
+                        self.popups.push_back(popup);
+                    }
                 });
         });
         self.images.central_view = view;
