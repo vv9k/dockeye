@@ -130,7 +130,7 @@ impl App {
                                 egui::Grid::new(&volume.name)
                                     .spacing((0., 5.))
                                     .show(ui, |ui| {
-                                        ui::line_with_size(ui, frame, (size, 1.));
+                                        ui.add(ui::line_with_size(frame, (size, 1.)));
                                         ui.end_row();
                                         egui::Grid::new(&volume.mountpoint)
                                             .spacing((2.5, 5.))

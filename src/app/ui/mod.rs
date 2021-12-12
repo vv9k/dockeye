@@ -3,9 +3,10 @@ mod popup;
 
 use egui::{
     style::{Selection, Widgets},
-    Color32, Label, Stroke, Visuals,
+    Color32, Label, Stroke, Visuals, Widget,
 };
 use epaint::Shadow;
+use std::string::ToString;
 
 pub use editable_list::{EditableList, EditableListBuilder};
 pub use popup::{ActionPopup, Popup};
@@ -126,31 +127,14 @@ pub fn dark_visuals() -> Visuals {
 #[macro_export]
 macro_rules! key {
     ($ui:ident, $k:expr) => {
-        $ui.add(egui::Label::new($k).strong().sense(egui::Sense {
-            click: true,
-            focusable: true,
-            drag: false,
-        }))
+        $ui.add(crate::app::ui::key_label($k));
     };
 }
 
 #[macro_export]
 macro_rules! val {
     ($ui:ident, $v:expr) => {
-        if $ui
-            .add(egui::Label::new($v).monospace().sense(egui::Sense {
-                click: true,
-                focusable: true,
-                drag: false,
-            }))
-            .on_hover_text("secondary-click to copy")
-            .secondary_clicked()
-        {
-            log::debug!("setting clipboard content to `{}`", $v);
-            if let Err(e) = crate::save_to_clipboard($v.to_string()) {
-                log::error!("failed to save content to clipboard - {}", e);
-            }
-        }
+        $ui.add(crate::app::ui::copyable_label($v));
     };
 }
 
@@ -167,22 +151,48 @@ pub use key;
 pub use key_val;
 pub use val;
 
-#[allow(dead_code)]
-pub fn line(ui: &mut egui::Ui, frame: egui::Frame) -> egui::Response {
-    line_with_size(ui, frame, ui.available_size())
+pub fn key_label(label: impl ToString) -> impl Widget + 'static {
+    let label = label.to_string();
+    move |ui: &mut egui::Ui| {
+        ui.add(egui::Label::new(label).strong().sense(egui::Sense {
+            click: true,
+            focusable: true,
+            drag: false,
+        }))
+    }
 }
 
-pub fn line_with_size(
-    ui: &mut egui::Ui,
-    frame: egui::Frame,
-    size: impl Into<egui::Vec2>,
-) -> egui::Response {
-    frame
-        .show(ui, |ui| {
-            ui.set_max_height(1.);
-            let available_space = size.into();
+pub fn copyable_label(label: impl ToString) -> impl Widget + 'static {
+    let label = label.to_string();
+    move |ui: &mut egui::Ui| {
+        let rsp = ui
+            .add(egui::Label::new(&label).monospace().sense(egui::Sense {
+                click: true,
+                focusable: true,
+                drag: false,
+            }))
+            .on_hover_text("secondary-click to copy");
+        if rsp.secondary_clicked() {
+            if let Err(e) = crate::save_to_clipboard(label) {
+                log::error!("failed to save content to clipboard - {}", e);
+            }
+        }
+        rsp
+    }
+}
 
-            let size = egui::vec2(available_space.x, 0.);
+#[allow(dead_code)]
+pub fn line(frame: egui::Frame) -> impl Widget + 'static {
+    move |ui: &mut egui::Ui| line_with_size(frame, ui.available_size()).ui(ui)
+}
+
+pub fn line_with_size(frame: egui::Frame, size: impl Into<egui::Vec2>) -> impl Widget + 'static {
+    let size = size.into();
+    move |ui: &mut egui::Ui| {
+        frame.show(ui, |ui| {
+            ui.set_max_height(1.);
+
+            let size = egui::vec2(size.x, 0.);
 
             let (rect, response) = ui.allocate_at_least(size, egui::Sense::hover());
             let points = [
@@ -194,7 +204,7 @@ pub fn line_with_size(
             ui.painter().line_segment(points, stroke);
             response
         })
-        .response
+    }.response
 }
 
 pub fn bool_icon(val: bool) -> Label {

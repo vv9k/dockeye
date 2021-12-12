@@ -448,7 +448,7 @@ impl App {
                             egui::Grid::new(&container.id)
                                 .spacing((0., 5.))
                                 .show(ui, |ui| {
-                                    ui::line_with_size(ui, frame, (self.side_panel_size(), 1.));
+                                    ui.add(ui::line_with_size(frame, (self.side_panel_size(), 1.)));
                                     ui.end_row();
                                     egui::Grid::new(&container.id[0..8])
                                         .spacing((2.5, 5.))

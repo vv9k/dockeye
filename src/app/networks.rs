@@ -139,7 +139,7 @@ impl App {
 
                         frame.show(ui, |ui| {
                             egui::Grid::new(&network.id).spacing((0., 5.)).show(ui, |ui| {
-                                ui::line_with_size(ui, frame, (size, 1.));
+                                ui.add(ui::line_with_size(frame, (size, 1.)));
                                 ui.end_row();
                                 egui::Grid::new(&network.id[0..8])
                                     .spacing((2.5, 5.))
