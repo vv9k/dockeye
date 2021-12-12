@@ -257,7 +257,7 @@ impl App {
                 }
             }
 
-            self.display_popups(ctx);
+            self.display_popups(ui);
         });
     }
 
@@ -291,9 +291,11 @@ impl App {
         }
     }
 
-    fn display_popups(&mut self, ctx: &egui::CtxRef) {
+    fn display_popups(&mut self, ui: &mut egui::Ui) {
+        use egui::Widget;
         for popup in &mut self.popups {
-            popup.display(ctx);
+            popup.ui(ui);
+            popup.ui(ui);
         }
     }
 }
@@ -509,11 +511,11 @@ impl App {
                 Err((id, e)) => match e {
                     docker_api::Error::Fault { code, message } => {
                         if code.as_u16() == 409 {
-                            self.popups.push_back(ui::ActionPopup::new(
-                                    EventRequest::Container(ContainerEvent::ForceDelete { id }),
-                                    "Force delete container",
+                            self.popups.push_back(ui::ActionPopup::builder(
+                                    EventRequest::Container(ContainerEvent::ForceDelete { id })).title(
+                                    "Force delete container").text(
                                     format!("{}\nAre you sure you want to forcefully delete this container?", message),
-                                ));
+                                ).build());
                         } else {
                             self.add_error(format!(
                                 "cannot force delete container {}: {}",
@@ -627,11 +629,11 @@ impl App {
                     Err((id, e)) => match e {
                         docker_api::Error::Fault { code, message } => {
                             if code.as_u16() == 409 && !message.contains("cannot be forced") {
-                                self.popups.push_back(ui::ActionPopup::new(
-                                    EventRequest::Image(ImageEvent::ForceDelete { id }),
-                                    "Force delete image",
+                                self.popups.push_back(ui::ActionPopup::builder(
+                                    EventRequest::Image(ImageEvent::ForceDelete { id })).title(
+                                    "Force delete image").text(
                                     format!("{}\n Are you sure you want to forcefully delete this image?", message),
-                                ));
+                                ).build());
                             } else {
                                 self.add_error(format!(
                                     "cannot force delete image {}: {}",

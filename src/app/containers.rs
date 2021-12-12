@@ -408,11 +408,12 @@ impl App {
         });
         egui::Grid::new("containers_button_menu").show(ui, |ui| {
             if ui.button("prune").clicked() {
-                self.popups.push_back(ui::ActionPopup::new(
-                    EventRequest::Container(ContainerEvent::Prune),
-                    "Delete stopped containers",
-                    "Are you sure you want to delete all stopped containers?",
-                ));
+                self.popups.push_back(
+                    ui::ActionPopup::builder(EventRequest::Container(ContainerEvent::Prune))
+                        .title("Delete stopped containers")
+                        .text("Are you sure you want to delete all stopped containers?")
+                        .build(),
+                );
             }
         });
     }
@@ -509,18 +510,21 @@ impl App {
                                                     .on_hover_text("Delete this container")
                                                     .clicked()
                                                 {
-                                                    popup = Some(ui::ActionPopup::new(
-                                                        EventRequest::Container(
-                                                            ContainerEvent::Delete {
-                                                                id: container.id.clone(),
-                                                            },
-                                                        ),
-                                                        "Delete container",
-                                                        format!(
+                                                    popup = Some(
+                                                        ui::ActionPopup::builder(
+                                                            EventRequest::Container(
+                                                                ContainerEvent::Delete {
+                                                                    id: container.id.clone(),
+                                                                },
+                                                            ),
+                                                        )
+                                                        .title("Delete container")
+                                                        .text(format!(
                                                     "are you sure you want to delete container {}?",
                                                     &container.id
-                                                ),
-                                                    ));
+                                                ))
+                                                        .build(),
+                                                    );
                                                 }
                                                 match container.state {
                                                     ContainerStatus::Running => {
@@ -602,7 +606,7 @@ impl App {
 
             ui.end_row();
 
-            let mut env = ui::EditableList::builder_key_val(&mut self.containers.create_data.env)
+            ui.add( ui::EditableList::builder_key_val(&mut self.containers.create_data.env)
                 .heading("Environment:")
                 .add_hover_text(
                 "Add a key value pair"
@@ -610,44 +614,39 @@ impl App {
                 .key_heading("Key:")
                 .val_heading("Val:")
                 .build()
-            ;
-            env.show(ui);
+            );
             ui.end_row();
 
-            let mut sec_ops = ui::EditableList::builder_key(&mut self.containers.create_data.sec_ops)
+            ui.add(ui::EditableList::builder_key(&mut self.containers.create_data.sec_ops)
                 .heading("Security options:")
                 .add_hover_text(
                 "Add a security option"
                 ).build()
-            ;
-            sec_ops.show(ui);
+            );
             ui.end_row();
 
-            let mut capabilities = ui::EditableList::builder_key(&mut self.containers.create_data.capabilities)
+            ui.add(ui::EditableList::builder_key(&mut self.containers.create_data.capabilities)
                 .heading("Capabilities:")
                 .add_hover_text(
                 "Add a capability"
                 ).build()
-            ;
-            capabilities.show(ui);
+            );
             ui.end_row();
 
-            let mut volumes = ui::EditableList::builder_key(&mut self.containers.create_data.volumes)
+            ui.add(ui::EditableList::builder_key(&mut self.containers.create_data.volumes)
                 .heading("Volume mounts:")
                 .add_hover_text(
                 "Add a volume mount from host in the form of `/some/host/path:/some/container/path`)"
                 ).build()
-            ;
-            volumes.show(ui);
+            );
             ui.end_row();
 
-            let mut links = ui::EditableList::builder_key(&mut self.containers.create_data.links)
+            ui.add(ui::EditableList::builder_key(&mut self.containers.create_data.links)
                 .heading("Links:")
                 .add_hover_text(
                 "Add a link"
                 ).build()
-            ;
-            links.show(ui);
+            );
             ui.end_row();
 
             key!(ui, "CPUs:");

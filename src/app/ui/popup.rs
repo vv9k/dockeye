@@ -1,5 +1,7 @@
 use crate::event::EventRequest;
 
+use egui::Widget;
+
 /// A popup that has a specified action to run on confirmation.
 pub struct ActionPopup {
     /// The action to run on confirmation
@@ -9,11 +11,10 @@ pub struct ActionPopup {
 }
 
 impl ActionPopup {
-    /// Creates a new action popup
-    pub fn new(action: EventRequest, title: impl Into<String>, text: impl Into<String>) -> Self {
-        Self {
+    pub fn builder(action: EventRequest) -> ActionPopupBuilder {
+        ActionPopupBuilder {
             action,
-            popup: Popup::new(title.into(), text.into()),
+            builder: PopupBuilder::default(),
         }
     }
 
@@ -31,10 +32,11 @@ impl ActionPopup {
     pub fn action(self) -> EventRequest {
         self.action
     }
+}
 
-    /// Display this popup
-    pub fn display(&mut self, ctx: &egui::CtxRef) -> Option<egui::Response> {
-        self.popup.display(ctx)
+impl Widget for &mut ActionPopup {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        self.popup.ui(ui)
     }
 }
 
@@ -48,60 +50,101 @@ pub struct Popup {
 }
 
 impl Popup {
-    pub fn new(title: String, text: String) -> Self {
-        Self {
-            title,
-            text,
-            confirmed: false,
-            window_enabled: false,
-            finished: false,
-        }
+    pub fn builder() -> PopupBuilder {
+        PopupBuilder::default()
     }
+}
 
-    pub fn display(&mut self, ctx: &egui::CtxRef) -> Option<egui::Response> {
+impl Widget for &mut Popup {
+    fn ui(mut self, ui: &mut egui::Ui) -> egui::Response {
         let mut confirmed = self.confirmed;
         let mut enabled = true;
         if !self.finished {
-            let response = popup(ctx, &self.title, &self.text, &mut confirmed, &mut enabled);
+            let response = egui::Window::new(&self.title)
+                .id(egui::Id::new(&self.text))
+                .enabled(enabled)
+                .collapsible(false)
+                .show(ui.ctx(), |ui| {
+                    egui::Grid::new(&self.title)
+                        .show(ui, |ui| {
+                            ui.label(&self.text);
+                            ui.end_row();
+                            ui.scope(|ui| {
+                                if ui.button("yes").clicked() {
+                                    confirmed = true;
+                                    enabled = false;
+                                }
+                                if ui.button("no").clicked() {
+                                    confirmed = false;
+                                    enabled = false;
+                                }
+                            });
+                        })
+                        .response
+                })
+                .map(|r| r.response);
             if !enabled {
                 self.finished = true;
             }
             self.confirmed = confirmed;
             self.window_enabled = enabled;
-            return response;
+            if let Some(rsp) = response {
+                return rsp;
+            }
         }
-        None
+        ui.scope(|_| {}).response
     }
 }
 
-pub fn popup(
-    ctx: &egui::CtxRef,
-    title: &str,
-    text: &str,
-    confirmed: &mut bool,
-    enabled: &mut bool,
-) -> Option<egui::Response> {
-    egui::Window::new(title)
-        .id(egui::Id::new(text))
-        .enabled(*enabled)
-        .collapsible(false)
-        .show(ctx, |ui| {
-            egui::Grid::new(title)
-                .show(ui, |ui| {
-                    ui.label(text);
-                    ui.end_row();
-                    ui.scope(|ui| {
-                        if ui.button("yes").clicked() {
-                            *confirmed = true;
-                            *enabled = false;
-                        }
-                        if ui.button("no").clicked() {
-                            *confirmed = false;
-                            *enabled = false;
-                        }
-                    });
-                })
-                .response
-        })
-        .map(|r| r.response)
+#[derive(Debug)]
+pub struct ActionPopupBuilder {
+    action: EventRequest,
+    builder: PopupBuilder,
+}
+
+impl ActionPopupBuilder {
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.builder = self.builder.title(title);
+        self
+    }
+
+    pub fn text(mut self, text: impl Into<String>) -> Self {
+        self.builder = self.builder.text(text);
+        self
+    }
+
+    pub fn build(self) -> ActionPopup {
+        ActionPopup {
+            action: self.action,
+            popup: self.builder.build(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct PopupBuilder {
+    title: String,
+    text: String,
+}
+
+impl PopupBuilder {
+    pub fn build(self) -> Popup {
+        Popup {
+            title: self.title,
+            text: self.text,
+            confirmed: false,
+            finished: false,
+            window_enabled: false,
+        }
+    }
+
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    pub fn text(mut self, text: impl Into<String>) -> Self {
+        self.text = text.into();
+        self
+    }
 }

@@ -88,11 +88,11 @@ impl App {
         });
         egui::Grid::new("volumes_button_grid").show(ui, |ui| {
             if ui.button("prune").clicked() {
-                self.popups.push_back(ui::ActionPopup::new(
-                    EventRequest::Volume(VolumeEvent::Prune(None)),
-                    "Prune volumes",
+                self.popups.push_back(ui::ActionPopup::builder(
+                    EventRequest::Volume(VolumeEvent::Prune(None))).title(
+                    "Prune volumes").text(
                     "Are you sure you want to prune unused volumes? This will delete all volumes not in use by a container.",
-                ));
+                ).build());
             }
         });
     }
@@ -174,18 +174,21 @@ impl App {
                                                         .on_hover_text("delete the volume")
                                                         .clicked()
                                                     {
-                                                        popup = Some(ui::ActionPopup::new(
-                                                            EventRequest::Volume(
-                                                                VolumeEvent::Delete {
-                                                                    id: volume.name.clone(),
-                                                                },
-                                                            ),
-                                                            "Delete volume",
-                                                            format!(
+                                                        popup = Some(
+                                                            ui::ActionPopup::builder(
+                                                                EventRequest::Volume(
+                                                                    VolumeEvent::Delete {
+                                                                        id: volume.name.clone(),
+                                                                    },
+                                                                ),
+                                                            )
+                                                            .title("Delete volume")
+                                                            .text(format!(
                                                         "Are you sure you want to delete volume {}",
                                                         &volume.name
-                                                    ),
-                                                        ));
+                                                    ))
+                                                            .build(),
+                                                        );
                                                     }
                                                 });
                                                 ui.end_row();
@@ -277,25 +280,25 @@ impl App {
             ui.text_edit_singleline(&mut self.volumes.create_view_data.driver);
             ui.end_row();
 
-            let mut driver_opts =
+            ui.add(
                 ui::EditableList::builder_key_val(&mut self.volumes.create_view_data.driver_opts)
                     .heading("Driver options:")
-                    .build();
-            driver_opts.show(ui);
+                    .build(),
+            );
             ui.end_row();
 
-            let mut labels =
+            ui.add(
                 ui::EditableList::builder_key_val(&mut self.volumes.create_view_data.labels)
                     .heading("Labels:")
-                    .build();
-            labels.show(ui);
+                    .build(),
+            );
             ui.end_row();
 
-            let mut opts =
+            ui.add(
                 ui::EditableList::builder_key_val(&mut self.volumes.create_view_data.opts)
                     .heading("Options:")
-                    .build();
-            opts.show(ui);
+                    .build(),
+            );
             ui.end_row();
         });
 

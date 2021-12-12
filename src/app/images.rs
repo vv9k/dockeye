@@ -179,18 +179,18 @@ impl App {
                 }
             }
             if ui.button("prune").clicked() {
-                self.popups.push_back(ui::ActionPopup::new(
-                    EventRequest::Image(ImageEvent::Prune),
-                    "Prune images",
+                self.popups.push_back(ui::ActionPopup::builder(
+                    EventRequest::Image(ImageEvent::Prune)).title(
+                    "Prune images").text(
                     "Are you sure you want to prune unused images? This will delete all images not in use by a container.",
-                ));
+                ).build());
             }
             if ui.button("clear cache").clicked() {
-                self.popups.push_back(ui::ActionPopup::new(
-                    EventRequest::Image(ImageEvent::ClearCache),
-                    "Clear images cache",
-                    "Are you sure you want to clear image build cache?",
-                ));
+                self.popups.push_back(ui::ActionPopup::builder(
+                    EventRequest::Image(ImageEvent::ClearCache)).title(
+                    "Clear images cache").text(
+                    "Are you sure you want to clear image build cache?"
+                ).build());
             }
         });
     }
@@ -286,16 +286,19 @@ impl App {
                                                 .on_hover_text("delete the image")
                                                 .clicked()
                                             {
-                                                popup = Some(ui::ActionPopup::new(
-                                                    EventRequest::Image(ImageEvent::Delete {
-                                                        id: image.id.clone(),
-                                                    }),
-                                                    "Delte image",
-                                                    format!(
+                                                popup = Some(
+                                                    ui::ActionPopup::builder(EventRequest::Image(
+                                                        ImageEvent::Delete {
+                                                            id: image.id.clone(),
+                                                        },
+                                                    ))
+                                                    .title("Delte image")
+                                                    .text(format!(
                                                         "Are you sure you want to delete image {}",
                                                         &image.id
-                                                    ),
-                                                ));
+                                                    ))
+                                                    .build(),
+                                                );
                                             }
                                             if ui
                                                 .button(icon::SAVE)

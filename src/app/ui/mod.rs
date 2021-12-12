@@ -8,7 +8,7 @@ use egui::{
 use epaint::Shadow;
 
 pub use editable_list::{EditableList, EditableListBuilder};
-pub use popup::{popup, ActionPopup, Popup};
+pub use popup::{ActionPopup, Popup};
 
 pub mod color {
     use egui::{Color32, Rgba};

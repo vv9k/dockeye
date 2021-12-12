@@ -100,11 +100,11 @@ impl App {
         });
         egui::Grid::new("networks_button_grid").show(ui, |ui| {
             if ui.button("prune").clicked() {
-                self.popups.push_back(ui::ActionPopup::new(
-                    EventRequest::Network(NetworkEvent::Prune),
-                    "Prune networks",
+                self.popups.push_back(ui::ActionPopup::builder(
+                    EventRequest::Network(NetworkEvent::Prune)).title(
+                    "Prune networks").text(
                     "Are you sure you want to prune unused networks? This will delete all networks not in use by a container.",
-                ));
+                ).build());
             }
         });
     }
@@ -188,16 +188,16 @@ impl App {
                                                 .on_hover_text("delete the network")
                                                 .clicked()
                                             {
-                                                popup = Some(ui::ActionPopup::new(
+                                                popup = Some(ui::ActionPopup::builder(
                                                     EventRequest::Network(NetworkEvent::Delete {
                                                         id: network.id.clone(),
-                                                    }),
-                                                    "Delete network",
+                                                    })).title(
+                                                    "Delete network").text(
                                                     format!(
                                                         "Are you sure you want to delete network {}",
                                                         &network.id
                                                     ),
-                                                ));
+                                                ).build());
                                             }
                                         });
                                         ui.end_row();
@@ -358,29 +358,29 @@ impl App {
             ui.text_edit_singleline(&mut self.networks.create_view_data.driver);
             ui.end_row();
 
-            let mut labels =
+            ui.add(
                 ui::EditableList::builder_key_val(&mut self.networks.create_view_data.labels)
                     .heading("Labels:")
-                    .build();
-            labels.show(ui);
+                    .build(),
+            );
             ui.end_row();
 
-            let mut opts =
+            ui.add(
                 ui::EditableList::builder_key_val(&mut self.networks.create_view_data.opts)
                     .heading("Options:")
-                    .build();
-            opts.show(ui);
+                    .build(),
+            );
             ui.end_row();
             ui.end_row();
 
             key!(ui, "IPAM Driver:");
             ui.text_edit_singleline(&mut self.networks.create_view_data.ipam_driver);
             ui.end_row();
-            let mut ipam_opts =
+            ui.add(
                 ui::EditableList::builder_key_val(&mut self.networks.create_view_data.ipam_opts)
                     .heading("IPAM Options:")
-                    .build();
-            ipam_opts.show(ui);
+                    .build(),
+            );
             ui.end_row();
             key!(ui, "IPAM Config:");
             if ui.button(icon::ADD).clicked() {
@@ -408,10 +408,11 @@ impl App {
                         key!(ui, &name);
                     });
                     ui.end_row();
-                    let mut cfg = ui::EditableList::builder_key_val(config)
-                        .heading(&name)
-                        .build();
-                    cfg.show(ui);
+                    ui.add(
+                        ui::EditableList::builder_key_val(config)
+                            .heading(&name)
+                            .build(),
+                    );
                     ui.end_row();
                 }
             });

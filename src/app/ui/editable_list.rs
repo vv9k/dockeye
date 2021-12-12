@@ -44,8 +44,10 @@ impl<'a> EditableList<'a> {
             add_hover_text: None,
         }
     }
+}
 
-    pub fn show(&mut self, ui: &mut egui::Ui) -> egui::Response {
+impl<'a> egui::Widget for EditableList<'a> {
+    fn ui(mut self, ui: &mut egui::Ui) -> egui::Response {
         if let Some(heading) = self.heading {
             key!(ui, heading);
         }
