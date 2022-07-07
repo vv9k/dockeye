@@ -53,7 +53,8 @@ impl ImagePullWorker {
         } else {
             PullOpts::builder().image(&self.image_id).build()
         };
-        let mut pull_stream = docker.images().pull(&opts);
+        let images = docker.images();
+        let mut pull_stream = images.pull(&opts);
         let mut chunks = Box::new(vec![]);
 
         macro_rules! send_chunks {

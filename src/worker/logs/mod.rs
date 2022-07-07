@@ -1,8 +1,8 @@
 use crate::worker::WorkerEvent;
 
-use bytes::Bytes;
 use docker_api::{
     api::{ContainerId, LogsOpts},
+    conn::TtyChunk,
     Docker,
 };
 use futures::StreamExt;
@@ -10,7 +10,7 @@ use log::{debug, error};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Default, Clone)]
-pub struct Logs(pub Vec<Bytes>);
+pub struct Logs(pub Vec<TtyChunk>);
 
 #[derive(Debug)]
 pub struct LogsWorker {

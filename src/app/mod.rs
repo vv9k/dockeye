@@ -21,6 +21,7 @@ use volumes::VolumesTab;
 
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
+use docker_api::conn::TtyChunk;
 use eframe::egui;
 use egui::style::Margin;
 use std::collections::VecDeque;
@@ -528,7 +529,16 @@ impl App {
                 }
             }
             Logs(logs) => {
-                let raw_bytes = logs.0.clone().into_iter().flatten().collect::<Vec<_>>();
+                let raw_bytes = logs
+                    .0
+                    .clone()
+                    .into_iter()
+                    .flat_map(|x| match x {
+                        TtyChunk::StdOut(data) => data,
+                        TtyChunk::StdErr(data) => data,
+                        TtyChunk::StdIn(_) => unreachable!(),
+                    })
+                    .collect::<Vec<_>>();
                 let escaped_bytes = strip_ansi_escapes::strip(&raw_bytes).unwrap_or(raw_bytes);
                 let logs = String::from_utf8_lossy(&escaped_bytes);
                 if let Some(current_logs) = &mut self.containers.logs_view_data.current_logs {
@@ -552,21 +562,23 @@ impl App {
             },
             Prune(res) => match res {
                 Ok(info) => {
-                    let deleted = info.containers_deleted.into_iter().fold(
-                        "Deleted:\n".to_string(),
-                        |mut acc, c| {
-                            acc.push_str(" - ");
-                            acc.push_str(&c);
-                            acc.push('\n');
-                            acc
-                        },
-                    );
-                    self.add_notification(format!(
-                        "Space reclaimed: {}\n\n{}",
-                        crate::conv_b(info.space_reclaimed as u64),
-                        deleted
-                    ));
-                    self.send_event_notify(EventRequest::SystemDataUsage);
+                    if let Some(deleted) = info.containers_deleted {
+                        let deleted =
+                            deleted
+                                .into_iter()
+                                .fold("Deleted:\n".to_string(), |mut acc, c| {
+                                    acc.push_str(" - ");
+                                    acc.push_str(&c);
+                                    acc.push('\n');
+                                    acc
+                                });
+                        self.add_notification(format!(
+                            "Space reclaimed: {}\n\n{}",
+                            crate::conv_b(info.space_reclaimed as u64),
+                            deleted
+                        ));
+                        self.send_event_notify(EventRequest::SystemDataUsage);
+                    }
                 }
                 Err(e) => self.add_error(e),
             },

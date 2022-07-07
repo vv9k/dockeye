@@ -63,7 +63,8 @@ impl ImageImportWorker {
                 return;
             }
         };
-        let mut import_stream = docker.images().import(archive);
+        let images = docker.images();
+        let mut import_stream = images.import(archive);
         let mut chunks = Box::new(vec![]);
 
         macro_rules! send_chunks {
