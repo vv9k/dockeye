@@ -34,5 +34,5 @@ fn main() -> Result<()> {
 
     DockerWorker::spawn(rt, uri, rx_req, tx_rsp);
 
-    eframe::run_native(Box::new(app), native_options)
+    eframe::run_native("dockeye", native_options, Box::new(|_| Box::new(app)))
 }

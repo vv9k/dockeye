@@ -1,6 +1,7 @@
 use crate::app::fonts::FontSizes;
 
 use anyhow::{Context, Result};
+use egui::RichText;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -83,7 +84,7 @@ impl SettingsWindow {
         }
     }
 
-    pub fn display(&mut self, ctx: &egui::CtxRef) {
+    pub fn display(&mut self, ctx: &egui::Context) {
         let mut show = self.show;
         let mut msg = std::mem::take(&mut self.msg);
         egui::Window::new("settings")
@@ -94,7 +95,7 @@ impl SettingsWindow {
                         Message::Ok(m) => (egui::Color32::GREEN, m),
                         Message::Error(m) => (egui::Color32::RED, m),
                     };
-                    ui.add(egui::Label::new(m).text_color(color));
+                    ui.add(egui::Label::new(RichText::new(m).color(color)));
                 }
                 egui::Grid::new("settings_grid").show(ui, |ui| {
                     ui.label("Docker address:");

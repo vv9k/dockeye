@@ -4,7 +4,7 @@ use crate::event::SystemInspectInfo;
 use crate::{convert_naive_date, format_date};
 
 use docker_api::api::{DataUsage, Event};
-use egui::{CollapsingHeader, Grid};
+use egui::{CollapsingHeader, Grid, RichText};
 
 const MAX_ITEM_COUNT: usize = 10;
 
@@ -78,7 +78,9 @@ impl App {
 
         ui.allocate_space((f32::INFINITY, 0.).into());
 
-        ui.add(egui::Label::new("System events").heading().strong());
+        ui.add(egui::Label::new(
+            RichText::new("System events").heading().strong(),
+        ));
         ui.add_space(25.);
 
         ui.horizontal(|ui| {
@@ -233,7 +235,7 @@ impl App {
                             }
                         });
                     if !self.system.display_all_containers && count > MAX_ITEM_COUNT {
-                        ui.add(egui::Label::new("More to load...").weak());
+                        ui.add(egui::Label::new(RichText::new("More to load...").weak()));
                     }
                 }
             });
@@ -318,7 +320,7 @@ impl App {
                             };
                         });
                     if !self.system.display_all_images && count > MAX_ITEM_COUNT {
-                        ui.add(egui::Label::new("More to load...").weak());
+                        ui.add(egui::Label::new(RichText::new("More to load...").weak()));
                     }
                 }
             });
@@ -359,7 +361,9 @@ impl App {
                                     cache: &docker_api::api::BuildCache,
                                 ) {
                                     ui.scope(|ui| {
-                                        ui.add(egui::Label::new(icon::DISK).heading().strong());
+                                        ui.add(egui::Label::new(
+                                            RichText::new(icon::DISK).heading().strong(),
+                                        ));
                                         val!(ui, images::trim_id(&cache.id));
                                     });
                                     val!(ui, &cache.type_);
@@ -383,7 +387,7 @@ impl App {
                                 };
                             });
                         if !self.system.display_all_cache && count > MAX_ITEM_COUNT {
-                            ui.add(egui::Label::new("More to load...").weak());
+                            ui.add(egui::Label::new(RichText::new("More to load...").weak()));
                         }
                     }
                 });

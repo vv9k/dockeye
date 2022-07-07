@@ -9,10 +9,10 @@ use crate::format_date;
 
 use docker_api::api::{Ipam, NetworkCreateOpts, NetworkInfo};
 
-use egui::{Grid, Label};
+use egui::{style::Margin, Grid, Label, RichText};
 
 pub fn icon() -> Label {
-    Label::new(icon::NETWORK).heading().strong()
+    Label::new(RichText::new(icon::NETWORK).heading().strong())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -131,9 +131,9 @@ impl App {
                             .unwrap_or_default();
 
                         let frame = if selected {
-                            egui::Frame::none().fill(color).margin((0., 0.))
+                            egui::Frame::none().fill(color).inner_margin(Margin::symmetric(0., 0.))
                         } else {
-                            egui::Frame::none().margin((0., 0.))
+                            egui::Frame::none().inner_margin(Margin::symmetric(0., 0.))
                         };
                         let size = self.side_panel_size();
 
@@ -154,9 +154,7 @@ impl App {
                                             };
                                             ui.add(icon());
                                             ui.add(
-                                                Label::new(&name)
-                                                    .heading()
-                                                    .strong()
+                                                Label::new(RichText::new(name).heading().strong())
                                                     .wrap(true),
                                             );
                                         });
@@ -164,9 +162,7 @@ impl App {
 
                                         ui.add_space(5.);
                                         ui.add(
-                                            Label::new(format_date(&network.created))
-                                                .italics()
-                                                .strong()
+                                            Label::new(RichText::new(format_date(&network.created)).italics().strong())
                                                 .wrap(true),
                                         );
                                         ui.end_row();
@@ -228,7 +224,7 @@ impl App {
 
             ui.horizontal(|ui| {
                 ui.add(icon());
-                ui.add(Label::new(name).heading().wrap(true).strong());
+                ui.add(Label::new(RichText::new(name).heading().strong()).wrap(true));
             });
             ui.add_space(25.);
 
@@ -340,12 +336,7 @@ impl App {
     fn network_create(&mut self, ui: &mut egui::Ui) {
         ui.allocate_space((f32::INFINITY, 0.).into());
 
-        ui.add(
-            Label::new("Create a new network")
-                .heading()
-                .wrap(true)
-                .strong(),
-        );
+        ui.add(Label::new(RichText::new("Create a new network").heading().strong()).wrap(true));
 
         Grid::new("create_network_grid").show(ui, |ui| {
             ui.scope(|_| {});

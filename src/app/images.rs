@@ -12,7 +12,7 @@ use docker_api::api::{
 };
 
 use anyhow::Error;
-use egui::{Grid, Label, TextEdit};
+use egui::{style::Margin, Grid, Label, RichText, TextEdit};
 
 pub fn trim_id(id: &str) -> &str {
     if id.len() > 12 {
@@ -23,7 +23,7 @@ pub fn trim_id(id: &str) -> &str {
 }
 
 pub fn icon() -> Label {
-    Label::new(icon::SCROLL).heading().strong()
+    Label::new(RichText::new(icon::SCROLL).heading().strong())
 }
 
 fn name(id: ImageIdRef, tags: Option<&Vec<String>>) -> String {
@@ -107,10 +107,12 @@ impl App {
         if ui
             .add(
                 egui::Label::new(
-                    name.map(|n| n.trim_start_matches('/'))
-                        .unwrap_or_else(|| id),
+                    RichText::new(
+                        name.map(|n| n.trim_start_matches('/'))
+                            .unwrap_or_else(|| id),
+                    )
+                    .strong(),
                 )
-                .strong()
                 .sense(egui::Sense {
                     click: true,
                     focusable: true,
@@ -206,7 +208,7 @@ impl App {
                     let mut error = None;
                     let mut popup = None;
                     let color = ui.visuals().widgets.open.bg_fill;
-                    for image in &self.images.images {
+                    for (i, image) in self.images.images.iter().enumerate() {
                         let selected = self
                             .images
                             .current_image
@@ -218,54 +220,67 @@ impl App {
                             .unwrap_or_default();
 
                         let frame = if selected {
-                            egui::Frame::none().fill(color).margin((0., 0.))
+                            egui::Frame::none()
+                                .fill(color)
+                                .inner_margin(Margin::symmetric(0., 0.))
                         } else {
-                            egui::Frame::none().margin((0., 0.))
+                            egui::Frame::none().inner_margin(Margin::symmetric(0., 0.))
                         };
 
                         frame.show(ui, |ui| {
-                            egui::Grid::new(&image.id).spacing((0., 5.)).show(ui, |ui| {
-                                ui.add(ui::line_with_size(frame, (self.side_panel_size(), 1.)));
-                                ui.end_row();
-                                egui::Grid::new(&image.id[0..8])
-                                    .spacing((2.5, 5.))
-                                    .max_col_width(self.side_panel_size())
-                                    .show(ui, |ui| {
-                                        let image_name = name(&image.id, image.repo_tags.as_ref());
+                            egui::Grid::new(format!("scroll_image_{i}"))
+                                .spacing((0., 5.))
+                                .show(ui, |ui| {
+                                    ui.add(ui::line_with_size(frame, (self.side_panel_size(), 1.)));
+                                    ui.end_row();
+                                    egui::Grid::new(format!("scroll_image_inner_{i}"))
+                                        .spacing((2.5, 5.))
+                                        .max_col_width(self.side_panel_size())
+                                        .show(ui, |ui| {
+                                            let image_name =
+                                                name(&image.id, image.repo_tags.as_ref());
 
-                                        ui.add_space(5.);
-                                        ui.scope(|ui| {
-                                            ui.add(icon());
-                                            ui.add(
-                                                Label::new(&image_name)
-                                                    .heading()
-                                                    .strong()
+                                            ui.add_space(5.);
+                                            ui.scope(|ui| {
+                                                ui.add(icon());
+                                                ui.add(
+                                                    Label::new(
+                                                        RichText::new(&image_name)
+                                                            .heading()
+                                                            .strong(),
+                                                    )
                                                     .wrap(true),
+                                                );
+                                            });
+                                            ui.end_row();
+
+                                            ui.add_space(5.);
+                                            ui.add(
+                                                Label::new(
+                                                    RichText::new(format_date(&image.created))
+                                                        .italics()
+                                                        .strong(),
+                                                )
+                                                .wrap(true),
                                             );
-                                        });
-                                        ui.end_row();
+                                            ui.end_row();
 
-                                        ui.add_space(5.);
-                                        ui.add(
-                                            Label::new(format_date(&image.created))
-                                                .italics()
-                                                .strong()
+                                            ui.add_space(5.);
+                                            ui.add(
+                                                Label::new(
+                                                    RichText::new(crate::conv_b(
+                                                        image.virtual_size,
+                                                    ))
+                                                    .strong()
+                                                    .italics(),
+                                                )
                                                 .wrap(true),
-                                        );
-                                        ui.end_row();
+                                            );
+                                            ui.end_row();
 
-                                        ui.add_space(5.);
-                                        ui.add(
-                                            Label::new(crate::conv_b(image.virtual_size))
-                                                .italics()
-                                                .strong()
-                                                .wrap(true),
-                                        );
-                                        ui.end_row();
-
-                                        ui.add_space(5.);
-                                        ui.scope(|ui| {
-                                            if ui
+                                            ui.add_space(5.);
+                                            ui.scope(|ui| {
+                                                if ui
                                                 .button(icon::INFO)
                                                 .on_hover_text(
                                                     "display detailed information about the image",
@@ -281,26 +296,28 @@ impl App {
                                                 };
                                                 view = CentralView::Image;
                                             }
-                                            if ui
-                                                .button(icon::DELETE)
-                                                .on_hover_text("delete the image")
-                                                .clicked()
-                                            {
-                                                popup = Some(
-                                                    ui::ActionPopup::builder(EventRequest::Image(
-                                                        ImageEvent::Delete {
-                                                            id: image.id.clone(),
-                                                        },
-                                                    ))
-                                                    .title("Delte image")
-                                                    .text(format!(
+                                                if ui
+                                                    .button(icon::DELETE)
+                                                    .on_hover_text("delete the image")
+                                                    .clicked()
+                                                {
+                                                    popup = Some(
+                                                        ui::ActionPopup::builder(
+                                                            EventRequest::Image(
+                                                                ImageEvent::Delete {
+                                                                    id: image.id.clone(),
+                                                                },
+                                                            ),
+                                                        )
+                                                        .title("Delte image")
+                                                        .text(format!(
                                                         "Are you sure you want to delete image {}",
                                                         &image.id
                                                     ))
-                                                    .build(),
-                                                );
-                                            }
-                                            if ui
+                                                        .build(),
+                                                    );
+                                                }
+                                                if ui
                                                 .button(icon::SAVE)
                                                 .on_hover_text(
                                                     "save the image to filesystem as tar archive",
@@ -333,13 +350,13 @@ impl App {
                                                     }
                                                 }
                                             }
+                                            });
+                                            ui.end_row();
                                         });
-                                        ui.end_row();
-                                    });
-                                ui.end_row();
-                                ui.scope(|_| {});
-                                ui.end_row();
-                            });
+                                    ui.end_row();
+                                    ui.scope(|_| {});
+                                    ui.end_row();
+                                });
                         });
                         ui.end_row();
                     }
@@ -362,10 +379,12 @@ impl App {
             ui.horizontal(|ui| {
                 ui.add(icon());
                 ui.add(
-                    Label::new(name(&details.id, Some(&details.repo_tags)))
-                        .heading()
-                        .wrap(true)
-                        .strong(),
+                    Label::new(
+                        RichText::new(name(&details.id, Some(&details.repo_tags)))
+                            .strong()
+                            .italics(),
+                    )
+                    .wrap(true),
                 );
                 if ui.button("tag").clicked() {
                     self.images.tag_window.toggle();
@@ -495,24 +514,24 @@ impl App {
     }
 
     fn images_pull(&mut self, ui: &mut egui::Ui) {
-        ui.add(
-            Label::new("Pull an image from a registry")
+        ui.add(Label::new(
+            RichText::new("Pull an image from a registry")
                 .heading()
                 .strong(),
-        );
+        ));
         ui.add_space(25.);
 
         Grid::new("image_pull_grid").show(ui, |ui| {
             ui.scope(|_| {});
             ui.allocate_space((200., 0.).into());
             ui.end_row();
-            ui.add(Label::new("Image to pull:").strong());
+            ui.add(Label::new(RichText::new("Image to pull:").strong()));
             ui.add(TextEdit::singleline(&mut self.images.pull_view_data.image).desired_width(150.));
             ui.end_row();
-            ui.add(Label::new("User:").strong());
+            ui.add(Label::new(RichText::new("User:").strong()));
             ui.add(TextEdit::singleline(&mut self.images.pull_view_data.user).desired_width(150.));
             ui.end_row();
-            ui.add(Label::new("Password:").strong());
+            ui.add(Label::new(RichText::new("Password:").strong()));
             ui.add(
                 TextEdit::singleline(&mut self.images.pull_view_data.password)
                     .password(true)
@@ -609,11 +628,11 @@ impl App {
     }
 
     fn images_search(&mut self, ui: &mut egui::Ui) {
-        ui.add(
-            Label::new("Search for images in Docker Hub")
+        ui.add(Label::new(
+            RichText::new("Search for images in Docker Hub")
                 .heading()
                 .strong(),
-        );
+        ));
         ui.add_space(25.);
 
         key!(ui, "Term:");

@@ -21,7 +21,8 @@ use volumes::VolumesTab;
 
 use anyhow::{Context, Result};
 use docker_api::api::{ContainerDetails, ContainerListOpts, Status};
-use eframe::{egui, epi};
+use eframe::egui;
+use egui::style::Margin;
 use std::collections::VecDeque;
 use std::time::SystemTime;
 use tokio::sync::mpsc;
@@ -101,36 +102,19 @@ pub struct App {
     timers: Timers,
 }
 
-impl epi::App for App {
-    fn name(&self) -> &str {
-        "dockeye"
-    }
-
-    fn setup(
-        &mut self,
-        _ctx: &egui::CtxRef,
-        _frame: &mut epi::Frame<'_>,
-        _storage: Option<&dyn epi::Storage>,
-    ) {
-        self.send_event_notify(EventRequest::Container(ContainerEvent::List(Some(
-            ContainerListOpts::builder().all(true).build(),
-        ))));
-        self.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
-        self.send_event_notify(EventRequest::Volume(VolumeEvent::List(None)));
-    }
-
-    fn save(&mut self, _storage: &mut dyn epi::Storage) {
+impl eframe::App for App {
+    fn save(&mut self, _storage: &mut dyn eframe::Storage) {
         self.save_settings();
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.display(ctx);
         self.display_windows(ctx);
     }
 }
 
 impl App {
-    pub fn display(&mut self, ctx: &egui::CtxRef) {
+    pub fn display(&mut self, ctx: &egui::Context) {
         if ctx.style().visuals.dark_mode {
             ctx.set_visuals(ui::dark_visuals());
         } else {
@@ -141,25 +125,25 @@ impl App {
         self.read_worker_events();
         self.handle_notifications();
         self.handle_popups();
-        self.settings_window.settings.fonts.update_ctx(ctx);
+        //self.settings_window.settings.fonts.update_ctx(ctx);
 
         self.top_panel(ctx);
         self.side_panel(ctx);
         self.central_panel(ctx);
     }
 
-    fn display_windows(&mut self, ctx: &egui::CtxRef) {
+    fn display_windows(&mut self, ctx: &egui::Context) {
         self.settings_window.display(ctx);
     }
 
-    fn top_panel(&mut self, ctx: &egui::CtxRef) {
+    fn top_panel(&mut self, ctx: &egui::Context) {
         let frame = egui::Frame {
             fill: if ctx.style().visuals.dark_mode {
                 *ui::color::D_BG_00
             } else {
                 *ui::color::L_BG_0
             },
-            margin: egui::vec2(5., 5.),
+            inner_margin: Margin::symmetric(5., 5.),
             ..Default::default()
         };
         egui::TopBottomPanel::top("top_panel")
@@ -200,7 +184,7 @@ impl App {
         (self.current_window.height() / 5.).max(100.)
     }
 
-    fn side_panel(&mut self, ctx: &egui::CtxRef) {
+    fn side_panel(&mut self, ctx: &egui::Context) {
         let frame = egui::Frame {
             fill: if ctx.style().visuals.dark_mode {
                 *ui::color::D_BG_00
@@ -227,14 +211,14 @@ impl App {
             });
     }
 
-    fn central_panel(&mut self, ctx: &egui::CtxRef) {
+    fn central_panel(&mut self, ctx: &egui::Context) {
         let frame = egui::Frame {
             fill: if ctx.style().visuals.dark_mode {
                 *ui::color::D_BG_0
             } else {
                 *ui::color::L_BG_3
             },
-            margin: (10., 10.).into(),
+            inner_margin: Margin::symmetric(10., 10.),
             ..Default::default()
         };
         egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
@@ -261,7 +245,7 @@ impl App {
         });
     }
 
-    fn display_notifications_and_errors(&mut self, ctx: &egui::CtxRef) {
+    fn display_notifications_and_errors(&mut self, ctx: &egui::Context) {
         let mut offset = 0.;
         for (_, notification) in &self.notifications {
             if let Some(response) = egui::Window::new("Notification")
@@ -270,7 +254,7 @@ impl App {
                 .collapsible(false)
                 .resizable(false)
                 .show(ctx, |ui| {
-                    ui.label(&notification);
+                    ui.label(notification);
                 })
             {
                 offset += response.response.rect.height();
@@ -306,7 +290,7 @@ impl App {
         tx_req: mpsc::Sender<EventRequest>,
         rx_rsp: mpsc::Receiver<EventResponse>,
     ) -> Self {
-        Self {
+        let mut app = Self {
             tx_req,
             rx_rsp,
 
@@ -327,7 +311,13 @@ impl App {
             },
             popups: VecDeque::new(),
             timers: Timers::default(),
-        }
+        };
+        app.send_event_notify(EventRequest::Container(ContainerEvent::List(Some(
+            ContainerListOpts::builder().all(true).build(),
+        ))));
+        app.send_event_notify(EventRequest::Image(ImageEvent::List(None)));
+        app.send_event_notify(EventRequest::Volume(VolumeEvent::List(None)));
+        app
     }
 
     fn send_event(&self, event: EventRequest) -> Result<()> {

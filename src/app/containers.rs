@@ -14,7 +14,7 @@ use docker_api::api::{
 };
 use egui::containers::Frame;
 use egui::widgets::plot::{self, Line, Plot};
-use egui::{Grid, Label};
+use egui::{style::Margin, Grid, Label, RichText};
 
 const PAGE_SIZE: usize = 1024;
 
@@ -27,10 +27,7 @@ pub fn color_for_state(state: &ContainerStatus) -> egui::Color32 {
 }
 
 pub fn state_icon(color: egui::Color32) -> Label {
-    Label::new(icon::PACKAGE)
-        .text_color(color)
-        .heading()
-        .strong()
+    Label::new(RichText::new(icon::PACKAGE).color(color).heading().strong())
 }
 
 pub fn is_running(container: &ContainerDetails) -> bool {
@@ -357,13 +354,14 @@ impl App {
     pub fn link_container(&self, ui: &mut egui::Ui, id: ContainerIdRef, name: Option<&str>) {
         if ui
             .add(
-                egui::Label::new(name.map(|n| n.trim_start_matches('/')).unwrap_or(id))
-                    .strong()
-                    .sense(egui::Sense {
-                        click: true,
-                        focusable: true,
-                        drag: false,
-                    }),
+                egui::Label::new(
+                    RichText::new(name.map(|n| n.trim_start_matches('/')).unwrap_or(id)).strong(),
+                )
+                .sense(egui::Sense {
+                    click: true,
+                    focusable: true,
+                    drag: false,
+                }),
             )
             .on_hover_text("click to follow")
             .clicked()
@@ -440,9 +438,11 @@ impl App {
                             .unwrap_or_default();
 
                         let frame = if selected {
-                            egui::Frame::none().fill(frame_color).margin((0., 0.))
+                            egui::Frame::none()
+                                .fill(frame_color)
+                                .inner_margin(Margin::symmetric(0., 0.))
                         } else {
-                            egui::Frame::none().margin((0., 0.))
+                            egui::Frame::none().inner_margin(Margin::symmetric(0., 0.))
                         };
                         frame.show(ui, |ui| {
                             egui::Grid::new(&container.id)
@@ -459,17 +459,23 @@ impl App {
                                                 ui.add(dot);
                                                 if let Some(name) = container.names.first() {
                                                     ui.add(
-                                                        Label::new(name.trim_start_matches('/'))
+                                                        Label::new(
+                                                            RichText::new(
+                                                                name.trim_start_matches('/'),
+                                                            )
                                                             .strong()
-                                                            .heading()
-                                                            .wrap(true),
+                                                            .heading(),
+                                                        )
+                                                        .wrap(true),
                                                     );
                                                 } else {
                                                     ui.add(
-                                                        Label::new(&container.id[..12])
-                                                            .strong()
-                                                            .heading()
-                                                            .wrap(true),
+                                                        Label::new(
+                                                            RichText::new(&container.id[..12])
+                                                                .strong()
+                                                                .heading(),
+                                                        )
+                                                        .wrap(true),
                                                     );
                                                 }
                                             });
@@ -480,10 +486,12 @@ impl App {
 
                                             ui.add_space(5.);
                                             ui.add(
-                                                Label::new(&container.status)
-                                                    .italics()
-                                                    .strong()
-                                                    .wrap(true),
+                                                Label::new(
+                                                    RichText::new(&container.status)
+                                                        .italics()
+                                                        .strong(),
+                                                )
+                                                .wrap(true),
                                             );
                                             ui.end_row();
 
@@ -704,10 +712,12 @@ impl App {
             ui.horizontal(|ui| {
                 ui.add(state_icon(color));
                 ui.add(
-                    Label::new(container.name.trim_start_matches('/'))
-                        .heading()
-                        .wrap(true)
-                        .strong(),
+                    Label::new(
+                        RichText::new(container.name.trim_start_matches('/'))
+                            .heading()
+                            .strong(),
+                    )
+                    .wrap(true),
                 );
                 self.container_buttons(ui, container, &mut error);
                 if ui.button("rename").clicked() {
@@ -992,7 +1002,7 @@ impl App {
                             }
 
                             if let Some(mem_stat) = &last.1.mem_stat {
-                                ui.add(Label::new("Memory stats:").strong());
+                                ui.add(Label::new(RichText::new("Memory stats:").strong()));
                                 egui::CollapsingHeader::new("")
                                     .id_source("mem_stats")
                                     .default_open(false)
@@ -1080,13 +1090,13 @@ impl App {
                             ui.end_row();
 
                             if let Some(net_stat) = &last.1.net_stat {
-                                ui.add(Label::new("Network stats:").strong());
+                                ui.add(Label::new(RichText::new("Network stats:").strong()));
                                 egui::CollapsingHeader::new("")
                                     .id_source("net_stats")
                                     .default_open(false)
                                     .show(ui, |ui| {
                                         for (network, stats) in net_stat {
-                                            egui::CollapsingHeader::new(&network)
+                                            egui::CollapsingHeader::new(network)
                                                 .default_open(false)
                                                 .show(ui, |ui| {
                                                     Grid::new(&network).show(ui, |ui| {
@@ -1127,42 +1137,42 @@ impl App {
                         *color::L_BG_4
                     };
                     Frame::none().fill(color).show(ui, |ui| {
-                        ui.add(
-                            Plot::new("CPU usage")
-                                .data_aspect(1.5)
-                                .show_background(false)
-                                .height(self.graph_height())
-                                .include_x(0.)
-                                .include_y(0.)
-                                .legend(egui::widgets::plot::Legend {
-                                    position: egui::widgets::plot::Corner::RightTop,
-                                    ..Default::default()
-                                })
-                                .line(
+                        Plot::new("CPU usage")
+                            .data_aspect(1.5)
+                            .show_background(false)
+                            .height(self.graph_height())
+                            .include_x(0.)
+                            .include_y(0.)
+                            .legend(egui::widgets::plot::Legend {
+                                position: egui::widgets::plot::Corner::RightTop,
+                                ..Default::default()
+                            })
+                            .show(ui, |ui| {
+                                ui.line(
                                     Line::new(cpu_data)
                                         .name("CPU usage %")
                                         .color(egui::Color32::YELLOW),
-                                ),
-                        );
+                                )
+                            });
                     });
                     Frame::none().fill(color).show(ui, |ui| {
-                        ui.add(
-                            Plot::new("Memory usage")
-                                .data_aspect(1.5)
-                                .show_background(false)
-                                .height(self.graph_height())
-                                .include_x(0.)
-                                .include_y(0.)
-                                .legend(egui::widgets::plot::Legend {
-                                    position: egui::widgets::plot::Corner::RightTop,
-                                    ..Default::default()
-                                })
-                                .line(
+                        Plot::new("Memory usage")
+                            .data_aspect(1.5)
+                            .show_background(false)
+                            .height(self.graph_height())
+                            .include_x(0.)
+                            .include_y(0.)
+                            .legend(egui::widgets::plot::Legend {
+                                position: egui::widgets::plot::Corner::RightTop,
+                                ..Default::default()
+                            })
+                            .show(ui, |ui| {
+                                ui.line(
                                     Line::new(mem_data)
                                         .name("Memory usage %")
                                         .color(egui::Color32::BLUE),
-                                ),
-                        );
+                                )
+                            });
                     });
                 });
         }
@@ -1317,13 +1327,13 @@ impl App {
                 {
                     let label = match change.kind {
                         ChangeKind::Modified => {
-                            Label::new("M").text_color(egui::Color32::YELLOW).strong()
+                            Label::new(RichText::new("M").color(egui::Color32::YELLOW).strong())
                         }
                         ChangeKind::Added => {
-                            Label::new("A").text_color(egui::Color32::GREEN).strong()
+                            Label::new(RichText::new("A").color(egui::Color32::GREEN).strong())
                         }
                         ChangeKind::Deleted => {
-                            Label::new("D").text_color(egui::Color32::RED).strong()
+                            Label::new(RichText::new("D").color(egui::Color32::RED).strong())
                         }
                     };
                     ui.scope(|ui| {

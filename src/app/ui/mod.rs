@@ -3,7 +3,7 @@ mod popup;
 
 use egui::{
     style::{Selection, Widgets},
-    Color32, Label, Stroke, Visuals, Widget,
+    Color32, Label, RichText, Stroke, Visuals, Widget,
 };
 use epaint::Shadow;
 use std::string::ToString;
@@ -154,7 +154,8 @@ pub use val;
 pub fn key_label(label: impl ToString) -> impl Widget + 'static {
     let label = label.to_string();
     move |ui: &mut egui::Ui| {
-        ui.add(egui::Label::new(label).strong().sense(egui::Sense {
+        let text = RichText::new(label).strong();
+        ui.add(egui::Label::new(text).sense(egui::Sense {
             click: true,
             focusable: true,
             drag: false,
@@ -165,8 +166,9 @@ pub fn key_label(label: impl ToString) -> impl Widget + 'static {
 pub fn copyable_label(label: impl ToString) -> impl Widget + 'static {
     let label = label.to_string();
     move |ui: &mut egui::Ui| {
+        let text = RichText::new(&label).monospace();
         let rsp = ui
-            .add(egui::Label::new(&label).monospace().sense(egui::Sense {
+            .add(egui::Label::new(text).sense(egui::Sense {
                 click: true,
                 focusable: true,
                 drag: false,
@@ -208,9 +210,10 @@ pub fn line_with_size(frame: egui::Frame, size: impl Into<egui::Vec2>) -> impl W
 }
 
 pub fn bool_icon(val: bool) -> Label {
-    if val {
-        Label::new(icon::ADD).strong().text_color(Color32::GREEN)
+    let (icon, color) = if val {
+        (icon::ADD, Color32::GREEN)
     } else {
-        Label::new(icon::SUB).strong().text_color(Color32::RED)
-    }
+        (icon::SUB, Color32::RED)
+    };
+    Label::new(RichText::new(icon).strong().color(color))
 }

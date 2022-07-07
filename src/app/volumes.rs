@@ -9,10 +9,10 @@ use crate::format_date;
 
 use docker_api::api::{VolumeCreateOpts, VolumeInfo, VolumesInfo};
 
-use egui::{Grid, Label};
+use egui::{style::Margin, Grid, Label, RichText};
 
 pub fn icon() -> Label {
-    Label::new(icon::DISK).heading().strong()
+    Label::new(RichText::new(icon::DISK).heading().strong())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -120,9 +120,11 @@ impl App {
                                 .unwrap_or_default();
 
                             let frame = if selected {
-                                egui::Frame::none().fill(color).margin((0., 0.))
+                                egui::Frame::none()
+                                    .fill(color)
+                                    .inner_margin(Margin::symmetric(0., 0.))
                             } else {
-                                egui::Frame::none().margin((0., 0.))
+                                egui::Frame::none().inner_margin(Margin::symmetric(0., 0.))
                             };
                             let size = self.side_panel_size();
 
@@ -140,20 +142,26 @@ impl App {
                                                 ui.scope(|ui| {
                                                     ui.add(icon());
                                                     ui.add(
-                                                        Label::new(&volume.name)
-                                                            .heading()
-                                                            .strong()
-                                                            .wrap(true),
+                                                        Label::new(
+                                                            RichText::new(&volume.name)
+                                                                .heading()
+                                                                .strong(),
+                                                        )
+                                                        .wrap(true),
                                                     );
                                                 });
                                                 ui.end_row();
 
                                                 ui.add_space(5.);
                                                 ui.add(
-                                                    Label::new(format_date(&volume.created_at))
+                                                    Label::new(
+                                                        RichText::new(format_date(
+                                                            &volume.created_at,
+                                                        ))
                                                         .italics()
-                                                        .strong()
-                                                        .wrap(true),
+                                                        .strong(),
+                                                    )
+                                                    .wrap(true),
                                                 );
                                                 ui.end_row();
 
@@ -215,7 +223,7 @@ impl App {
 
             ui.horizontal(|ui| {
                 ui.add(icon());
-                ui.add(Label::new(&volume.name).heading().wrap(true).strong());
+                ui.add(Label::new(RichText::new(&volume.name).heading().strong()).wrap(true));
             });
             ui.add_space(25.);
 
@@ -262,12 +270,7 @@ impl App {
     fn volume_create(&mut self, ui: &mut egui::Ui) {
         ui.allocate_space((f32::INFINITY, 0.).into());
 
-        ui.add(
-            Label::new("Create a new volume")
-                .heading()
-                .wrap(true)
-                .strong(),
-        );
+        ui.add(Label::new(RichText::new("Create a new volume").heading().strong()).wrap(true));
 
         Grid::new("create_volume_grid").show(ui, |ui| {
             ui.scope(|_| {});
