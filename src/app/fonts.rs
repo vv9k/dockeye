@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+// #TODO Bring back fonts
 use egui::{FontDefinitions, FontFamily, TextStyle};
 use serde::{Deserialize, Serialize};
 

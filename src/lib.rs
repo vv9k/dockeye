@@ -19,11 +19,11 @@ fn conv_metric(value: f64, unit: &str) -> String {
 
     let (val, u) = if value < KILO {
         (value, "")
-    } else if KILO <= value && value < MEGA {
+    } else if (KILO..MEGA).contains(&value) {
         (value / KILO, "K")
-    } else if MEGA <= value && value < GIGA {
+    } else if (MEGA..GIGA).contains(&value) {
         (value / MEGA, "M")
-    } else if GIGA <= value && value < TERA {
+    } else if (GIGA..TERA).contains(&value) {
         (value / GIGA, "G")
     } else {
         (value / TERA, "T")
